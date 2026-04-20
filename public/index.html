@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curriculum Manager Dashboard</title>
+    <!-- Modern Typeface -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- Ionicons for some nice icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <ion-icon name="layers-outline"></ion-icon>
+                <h2>KaManager</h2>
+            </div>
+            <nav class="nav-links">
+                <a href="#" class="nav-link active" data-target="ka_schooljaren">
+                    <ion-icon name="calendar-outline"></ion-icon> School Years
+                </a>
+                <a href="#" class="nav-link" data-target="ka_periodes">
+                    <ion-icon name="time-outline"></ion-icon> Periods
+                </a>
+                <a href="#" class="nav-link" data-target="ka_week_types">
+                    <ion-icon name="list-circle-outline"></ion-icon> Week Types
+                </a>
+                <a href="#" class="nav-link" data-target="ka_weken">
+                    <ion-icon name="grid-outline"></ion-icon> Weeks
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="topbar">
+                <h1 id="page-title">Manage School Years</h1>
+                <button class="btn-primary" id="btn-add-new">
+                    <ion-icon name="add-outline"></ion-icon> Add New
+                </button>
+            </header>
+
+            <section class="content-body">
+                <div class="table-container fade-in">
+                    <table id="data-table">
+                        <thead>
+                            <tr id="table-head">
+                                <!-- Dynamic Headers -->
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Dynamic Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Edit Modal / Add New Modal -->
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Edit Record</h3>
+                <button class="btn-close" id="btn-close-modal">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="record-form">
+                    <!-- Dynamic form inputs injected here -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="btn-cancel">Cancel</button>
+                <button class="btn-primary" id="btn-save">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/js/app.js"></script>
+</body>
+</html>

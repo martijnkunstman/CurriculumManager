@@ -1,15 +1,16 @@
 const state = {
     currentTable: 'ka_schooljaren',
     data: [],
-    editingId: null
+    editingId: null,
+    schooljaren: []
 };
 
-// Map tables to pretty titles
 const tableTitles = {
     'ka_schooljaren': 'Manage School Years',
     'ka_periodes': 'Manage Periods',
     'ka_week_types': 'Manage Week Types',
-    'ka_weken': 'Manage Weeks'
+    'ka_weken': 'Manage Weeks',
+    'year_visualizer': 'Year Visualizer'
 };
 
 const dom = {
@@ -17,6 +18,9 @@ const dom = {
     pageTitle: document.getElementById('page-title'),
     tableHead: document.getElementById('table-head'),
     tableBody: document.getElementById('table-body'),
+    tableContainer: document.getElementById('table-container'),
+    visualizerContainer: document.getElementById('visualizer-container'),
+    yearSelect: document.getElementById('year-select'),
     btnAdd: document.getElementById('btn-add-new'),
     modal: document.getElementById('edit-modal'),
     btnClose: document.getElementById('btn-close-modal'),
@@ -37,6 +41,17 @@ async function fetchData(table) {
     }
 }
 
+async function loadSchooljarenDropdown() {
+    state.schooljaren = await fetchData('ka_schooljaren');
+    dom.yearSelect.innerHTML = '';
+    state.schooljaren.forEach(sj => {
+        const opt = document.createElement('option');
+        opt.value = sj.id;
+        opt.textContent = sj.naam;
+        dom.yearSelect.appendChild(opt);
+    });
+}
+
 async function loadTable(tableName) {
     state.currentTable = tableName;
     dom.pageTitle.textContent = tableTitles[tableName] || 'Management';
@@ -46,6 +61,21 @@ async function loadTable(tableName) {
         if (link.dataset.target === tableName) link.classList.add('active');
         else link.classList.remove('active');
     });
+
+    if (tableName === 'year_visualizer') {
+        dom.tableContainer.style.display = 'none';
+        dom.visualizerContainer.style.display = 'block';
+        dom.btnAdd.style.display = 'none';
+        dom.yearSelect.style.display = 'inline-block';
+        if (state.schooljaren.length === 0) await loadSchooljarenDropdown();
+        await renderYearVisualizer();
+        return;
+    } else {
+        dom.tableContainer.style.display = 'block';
+        dom.visualizerContainer.style.display = 'none';
+        dom.btnAdd.style.display = 'inline-flex';
+        dom.yearSelect.style.display = 'none';
+    }
 
     state.data = await fetchData(tableName);
     renderTable();
@@ -94,6 +124,69 @@ function renderTable() {
     });
 }
 
+async function renderYearVisualizer() {
+    const sjId = dom.yearSelect.value;
+    if (!sjId) return;
+
+    try {
+        const res = await fetch(`/api/year-view/${sjId}`);
+        const json = await res.json();
+        const weeks = json.data || [];
+
+        // Group weeks by period
+        const periodesMap = new Map();
+        
+        weeks.forEach(w => {
+            const pNaam = w.periode_naam || 'Vakantie / Out of Period';
+            if (!periodesMap.has(pNaam)) {
+                periodesMap.set(pNaam, []);
+            }
+            periodesMap.get(pNaam).push(w);
+        });
+
+        dom.visualizerContainer.innerHTML = '<div class="year-grid"></div>';
+        const grid = dom.visualizerContainer.querySelector('.year-grid');
+
+        periodesMap.forEach((pWeeks, pNaam) => {
+            const section = document.createElement('div');
+            section.className = 'period-section';
+            
+            const title = document.createElement('div');
+            title.className = 'period-title';
+            title.textContent = pNaam;
+
+            const weeksCont = document.createElement('div');
+            weeksCont.className = 'weeks-container';
+
+            pWeeks.forEach(w => {
+                const block = document.createElement('div');
+                block.className = 'week-block';
+                block.textContent = w.kalenderweek;
+                
+                if (w.is_lesweek) {
+                    block.classList.add('lesweek');
+                } else if (w.week_type && w.week_type.toLowerCase().includes('vakantie')) {
+                    block.classList.add('holiday');
+                } else {
+                    block.classList.add('special');
+                }
+
+                // Setup dynamic tooltip data
+                block.setAttribute('data-tooltip', `W${w.kalenderweek}: ${w.startdatum} | ${w.week_type}`);
+                weeksCont.appendChild(block);
+            });
+
+            section.appendChild(title);
+            section.appendChild(weeksCont);
+            grid.appendChild(section);
+        });
+
+    } catch (err) {
+        console.error('Error rendering visualizer', err);
+        dom.visualizerContainer.innerHTML = '<p style="color:red">Error loading visualization.</p>';
+    }
+}
+
 function openModal(isEdit = false) {
     dom.modalTitle.textContent = isEdit ? 'Edit Record' : 'Add New Record';
     dom.modal.classList.add('active');
@@ -106,8 +199,6 @@ function closeModal() {
 function generateForm(dataRow = null) {
     dom.form.innerHTML = '';
     
-    // If we have data, use its keys, otherwise use the first item in state.data for template, 
-    // or hardcode fallback if empty
     let template = dataRow || (state.data.length > 0 ? state.data[0] : null);
     
     if (!template) {
@@ -124,7 +215,6 @@ function generateForm(dataRow = null) {
         const label = document.createElement('label');
         label.textContent = key.replace(/_/g, ' ').toUpperCase();
         
-        // Use standard input, we can infer type roughly
         const input = document.createElement('input');
         input.className = 'form-control';
         input.name = key;
@@ -169,6 +259,12 @@ dom.navLinks.forEach(link => {
         e.preventDefault();
         loadTable(e.target.closest('a').dataset.target);
     });
+});
+
+dom.yearSelect.addEventListener('change', () => {
+    if (state.currentTable === 'year_visualizer') {
+        renderYearVisualizer();
+    }
 });
 
 dom.btnAdd.addEventListener('click', () => {

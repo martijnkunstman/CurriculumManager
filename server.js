@@ -71,6 +71,31 @@ setupCrudRoutes('ka_periodes');
 setupCrudRoutes('ka_week_types');
 setupCrudRoutes('ka_weken');
 
+// Special endpoint for year visualizer
+app.get('/api/year-view/:schooljaar_id', (req, res) => {
+    const sql = `
+        SELECT 
+            w.id AS week_id,
+            w.volgnummer_schooljaar,
+            w.kalenderweek,
+            w.startdatum,
+            w.einddatum,
+            p.naam AS periode_naam,
+            p.volgnummer AS periode_volgnummer,
+            wt.is_lesweek,
+            wt.omschrijving AS week_type
+        FROM ka_weken w
+        LEFT JOIN ka_periodes p ON w.periode_id = p.id
+        LEFT JOIN ka_week_types wt ON w.type_id = wt.id
+        WHERE w.schooljaar_id = ?
+        ORDER BY w.startdatum ASC
+    `;
+    db.all(sql, [req.params.schooljaar_id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
 // Start Server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

@@ -32,20 +32,26 @@
                 <a href="#" class="nav-link" data-target="ka_weken">
                     <ion-icon name="grid-outline"></ion-icon> Weeks
                 </a>
+                <a href="#" class="nav-link" data-target="year_visualizer">
+                    <ion-icon name="map-outline"></ion-icon> Year Visualizer
+                </a>
             </nav>
         </aside>
 
         <!-- Main Content Area -->
         <main class="main-content">
             <header class="topbar">
-                <h1 id="page-title">Manage School Years</h1>
+                <div style="display:flex; align-items:center; gap: 1rem;">
+                    <h1 id="page-title">Manage School Years</h1>
+                    <select id="year-select" class="form-control" style="display:none; width:200px;"></select>
+                </div>
                 <button class="btn-primary" id="btn-add-new">
                     <ion-icon name="add-outline"></ion-icon> Add New
                 </button>
             </header>
 
             <section class="content-body">
-                <div class="table-container fade-in">
+                <div class="table-container fade-in" id="table-container">
                     <table id="data-table">
                         <thead>
                             <tr id="table-head">
@@ -56,6 +62,11 @@
                             <!-- Dynamic Rows -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Visualization Container -->
+                <div class="visualizer-container fade-in" id="visualizer-container" style="display: none;">
+                    <!-- Blocks injected dynamically via JS -->
                 </div>
             </section>
         </main>

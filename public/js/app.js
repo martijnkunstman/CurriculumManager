@@ -133,52 +133,45 @@ async function renderYearVisualizer() {
         const json = await res.json();
         const weeks = json.data || [];
 
-        // Group weeks by period
-        const periodesMap = new Map();
-        
+        dom.visualizerContainer.innerHTML = '<div class="year-timeline"></div>';
+        const timeline = dom.visualizerContainer.querySelector('.year-timeline');
+
+        let lastLabel = null;
+
         weeks.forEach(w => {
-            const pNaam = w.periode_naam || 'Vakantie / Out of Period';
-            if (!periodesMap.has(pNaam)) {
-                periodesMap.set(pNaam, []);
-            }
-            periodesMap.get(pNaam).push(w);
-        });
-
-        dom.visualizerContainer.innerHTML = '<div class="year-grid"></div>';
-        const grid = dom.visualizerContainer.querySelector('.year-grid');
-
-        periodesMap.forEach((pWeeks, pNaam) => {
-            const section = document.createElement('div');
-            section.className = 'period-section';
+            const currentLabel = w.periode_naam || w.week_type || 'Special';
             
-            const title = document.createElement('div');
-            title.className = 'period-title';
-            title.textContent = pNaam;
+            const col = document.createElement('div');
+            col.className = 'timeline-col';
 
-            const weeksCont = document.createElement('div');
-            weeksCont.className = 'weeks-container';
+            // Top label (only show if it changed to keep UI clean)
+            const labelHead = document.createElement('div');
+            labelHead.className = 'timeline-label';
+            if (currentLabel !== lastLabel) {
+                labelHead.textContent = currentLabel;
+                lastLabel = currentLabel;
+            } else {
+                labelHead.innerHTML = '&nbsp;';
+            }
 
-            pWeeks.forEach(w => {
-                const block = document.createElement('div');
-                block.className = 'week-block';
-                block.textContent = w.kalenderweek;
-                
-                if (w.is_lesweek) {
-                    block.classList.add('lesweek');
-                } else if (w.week_type && w.week_type.toLowerCase().includes('vakantie')) {
-                    block.classList.add('holiday');
-                } else {
-                    block.classList.add('special');
-                }
+            const block = document.createElement('div');
+            block.className = 'week-block';
+            block.textContent = w.kalenderweek;
+            
+            if (w.is_lesweek) {
+                block.classList.add('lesweek');
+            } else if (w.week_type && w.week_type.toLowerCase().includes('vakantie')) {
+                block.classList.add('holiday');
+            } else {
+                block.classList.add('special');
+            }
 
-                // Setup dynamic tooltip data
-                block.setAttribute('data-tooltip', `W${w.kalenderweek}: ${w.startdatum} | ${w.week_type}`);
-                weeksCont.appendChild(block);
-            });
-
-            section.appendChild(title);
-            section.appendChild(weeksCont);
-            grid.appendChild(section);
+            // Setup dynamic tooltip data
+            block.setAttribute('data-tooltip', `W${w.kalenderweek}: ${w.startdatum} | ${currentLabel}`);
+            
+            col.appendChild(labelHead);
+            col.appendChild(block);
+            timeline.appendChild(col);
         });
 
     } catch (err) {

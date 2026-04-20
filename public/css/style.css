@@ -356,59 +356,50 @@ tr:hover td {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Year Visualizer Grid Styles */
-.year-grid {
+/* Year Visualizer Timeline Styles */
+.year-timeline {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 1.5rem;
+    gap: 0.3rem;
     overflow-x: auto;
     padding-bottom: 2rem;
+    padding-top: 1rem;
+    align-items: flex-end;
 }
 
 /* Custom Scrollbar for horizontal scrolling */
-.year-grid::-webkit-scrollbar {
+.year-timeline::-webkit-scrollbar {
     height: 10px;
 }
-.year-grid::-webkit-scrollbar-track {
+.year-timeline::-webkit-scrollbar-track {
     background: rgba(0,0,0,0.1); 
     border-radius: 5px;
 }
-.year-grid::-webkit-scrollbar-thumb {
+.year-timeline::-webkit-scrollbar-thumb {
     background: var(--accent-color); 
     border-radius: 5px;
 }
 
-.period-section {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    padding: 1rem 1.5rem;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+.timeline-col {
     display: flex;
     flex-direction: column;
-    min-width: fit-content;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.period-title {
-    font-size: 1.1rem;
+.timeline-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
     font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-    text-align: center;
-}
-
-.weeks-container {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 0.4rem;
+    white-space: nowrap;
+    height: 1rem;
 }
 
 .week-block {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     border-radius: 4px;
     background: var(--surface-hover);
     display: flex;

@@ -366,6 +366,12 @@ tr:hover td {
 .year-row-wrapper {
     display: flex;
     flex-direction: column;
+    position: relative; /* Anchor for z-index leap */
+}
+
+/* Row-level Z-Index leap prevents tooltips from being trapped beneath subsequent timeline rows */
+.year-row-wrapper:hover {
+    z-index: 9999;
 }
 
 .year-row-title {
@@ -384,7 +390,7 @@ tr:hover td {
     gap: 0;
     overflow-x: auto;
     padding-bottom: 2rem;
-    padding-top: 3rem;
+    padding-top: 4.5rem; /* Expanded internal headspace so tooltips aren't clipped by scroll-boundary */
     align-items: flex-end;
 }
 

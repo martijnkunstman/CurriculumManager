@@ -176,7 +176,8 @@ async function renderYearVisualizer() {
                 if (leftContext && leftContext === rightContext) {
                     return leftContext; // The holiday is fully encased inside the period!
                 }
-                return `between_${leftContext}_${rightContext}_idx_${index}`; // External boundaries
+                // Removing _idx_${index} ensures consecutive identical boundary holidays seamlessly group together!
+                return `between_${leftContext}_${rightContext}`; // External boundaries
             });
 
             let seenPeriods = new Set();

@@ -359,16 +359,35 @@ tr:hover td {
 /* Year Visualizer Grid Styles */
 .year-grid {
     display: flex;
-    flex-direction: column;
-    gap: 2rem;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding-bottom: 2rem;
+}
+
+/* Custom Scrollbar for horizontal scrolling */
+.year-grid::-webkit-scrollbar {
+    height: 10px;
+}
+.year-grid::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1); 
+    border-radius: 5px;
+}
+.year-grid::-webkit-scrollbar-thumb {
+    background: var(--accent-color); 
+    border-radius: 5px;
 }
 
 .period-section {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: 1rem 1.5rem;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    min-width: fit-content;
 }
 
 .period-title {
@@ -378,18 +397,19 @@ tr:hover td {
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-color);
+    text-align: center;
 }
 
 .weeks-container {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
 }
 
 .week-block {
-    width: 38px;
-    height: 38px;
-    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
     background: var(--surface-hover);
     display: flex;
     align-items: center;
@@ -405,21 +425,24 @@ tr:hover td {
 .week-block.lesweek {
     background: var(--accent-color);
     color: #fff;
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);
 }
 
 .week-block.holiday {
     background: #eab308;
     color: #1e293b;
+    border: 1px solid #ca8a04;
 }
 
 .week-block.special {
     background: #8b5cf6;
     color: #fff;
+    border: 1px solid #7c3aed;
 }
 
 .week-block:hover {
-    transform: scale(1.15) translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    transform: scale(1.15) translateY(-4px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
     z-index: 10;
 }
 
@@ -427,22 +450,24 @@ tr:hover td {
 .week-block::after {
     content: attr(data-tooltip);
     position: absolute;
-    bottom: 120%;
+    bottom: 130%;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0,0,0,0.85);
+    background: rgba(0,0,0,0.9);
     color: #fff;
-    padding: 0.4rem 0.8rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s;
+    transition: all 0.2s;
     z-index: 20;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .week-block:hover::after {
     opacity: 1;
+    bottom: 140%;
 }

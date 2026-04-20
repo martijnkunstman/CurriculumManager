@@ -357,6 +357,26 @@ tr:hover td {
 }
 
 /* Year Visualizer Timeline Styles */
+.all-years-container {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem; /* Space between different school years */
+}
+
+.year-row-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.year-row-title {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: var(--accent-color);
+    margin-bottom: 0.5rem;
+    padding-left: 0.5rem;
+    border-left: 4px solid var(--accent-color);
+}
+
 .year-timeline {
     display: flex;
     flex-direction: row;
@@ -364,7 +384,7 @@ tr:hover td {
     gap: 0;
     overflow-x: auto;
     padding-bottom: 2rem;
-    padding-top: 1rem;
+    padding-top: 3rem;
     align-items: flex-end;
 }
 
@@ -381,41 +401,68 @@ tr:hover td {
     border-radius: 5px;
 }
 
-.contiguous-group {
+.timeline-col {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
+    position: relative;
 }
 
-.group-label {
-    height: 1.25rem;
+/* Fix CSS Stacking Context Issue: Enforce that the active hovered column floats entirely to the front so its tooltips never clip beneath subsequent sibling columns */
+.timeline-col:hover {
+    z-index: 9999;
+}
+
+.timeline-label {
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 0;
     font-size: 0.75rem;
     color: var(--text-secondary);
     text-transform: uppercase;
     font-weight: 600;
     white-space: nowrap;
-    padding-left: 2px;
-}
-
-.group-weeks {
-    display: flex;
-    flex-direction: row;
+    z-index: 5;
 }
 
 .week-block {
     width: 34px;
-    height: 34px;
+    height: 38px;
     border-radius: 0;
     background: var(--surface-hover);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
-    font-weight: bold;
     cursor: default;
     position: relative;
     transition: var(--transition);
     border: 1px solid rgba(0,0,0,0.3);
     margin-left: -1px; /* collapse double borders */
+}
+
+.week-block .val-period {
+    font-size: 0.8rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.week-block .val-calendar {
+    font-size: 0.5rem;
+    font-weight: 500;
+    line-height: 1;
+    margin-top: 2px;
+    opacity: 0.8;
+}
+
+/* Explicit border radii for blocks that sit at the boundaries of distinct sequences */
+.week-block.start-block {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+.week-block.end-block {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
 }
 
 .week-block.lesweek {
@@ -437,7 +484,7 @@ tr:hover td {
 .week-block:hover {
     transform: scale(1.15) translateY(-4px);
     box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-    z-index: 10;
+    z-index: 100 !important;
 }
 
 /* Tooltip on hover */
@@ -456,7 +503,7 @@ tr:hover td {
     opacity: 0;
     pointer-events: none;
     transition: all 0.2s;
-    z-index: 20;
+    z-index: 200;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     border: 1px solid rgba(255,255,255,0.1);
 }

@@ -66,8 +66,7 @@ async function loadTable(tableName) {
         dom.tableContainer.style.display = 'none';
         dom.visualizerContainer.style.display = 'block';
         dom.btnAdd.style.display = 'none';
-        dom.yearSelect.style.display = 'inline-block';
-        if (state.schooljaren.length === 0) await loadSchooljarenDropdown();
+        dom.yearSelect.style.display = 'none'; // hide because we fetch all years now
         await renderYearVisualizer();
         return;
     } else {
@@ -125,69 +124,141 @@ function renderTable() {
 }
 
 async function renderYearVisualizer() {
-    const sjId = dom.yearSelect.value;
-    if (!sjId) return;
-
     try {
-        const res = await fetch(`/api/year-view/${sjId}`);
-        const json = await res.json();
-        const weeks = json.data || [];
+        dom.visualizerContainer.innerHTML = '<p style="color:var(--text-secondary)">Loading all school years...</p>';
+        
+        // Fetch all school years
+        const sjRes = await fetch('/api/ka_schooljaren');
+        const sjJson = await sjRes.json();
+        const schooljaren = sjJson.data || [];
 
-        dom.visualizerContainer.innerHTML = '<div class="year-timeline"></div>';
-        const timeline = dom.visualizerContainer.querySelector('.year-timeline');
+        dom.visualizerContainer.innerHTML = '<div class="all-years-container"></div>';
+        const allYearsCont = dom.visualizerContainer.querySelector('.all-years-container');
 
-        // Group into contiguous blocks based on periode
-        let groups = [];
-        let currentGroup = null;
+        for (const sj of schooljaren) {
+            const res = await fetch(`/api/year-view/${sj.id}`);
+            const json = await res.json();
+            let weeks = json.data || [];
+            if (weeks.length === 0) continue;
 
-        weeks.forEach(w => {
-            const groupName = w.periode_naam || 'holiday';
-            if (!currentGroup || currentGroup.name !== groupName) {
-                currentGroup = {
-                    name: groupName,
-                    isHoliday: !w.periode_naam,
-                    weeks: []
-                };
-                groups.push(currentGroup);
+            // Mathematical Shift: Shift any pre-period holiday weeks (like Zomervakantie) to the END of the school year timeline
+            const firstPeriodIdx = weeks.findIndex(w => w.periode_naam);
+            if (firstPeriodIdx > 0) {
+                const preWeeks = weeks.slice(0, firstPeriodIdx);
+                const postWeeks = weeks.slice(firstPeriodIdx);
+                weeks = [...postWeeks, ...preWeeks];
             }
-            currentGroup.weeks.push(w);
-        });
 
-        groups.forEach(g => {
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'contiguous-group';
+            const yearRow = document.createElement('div');
+            yearRow.className = 'year-row-wrapper';
 
-            const labelDiv = document.createElement('div');
-            labelDiv.className = 'group-label';
-            labelDiv.textContent = g.isHoliday ? '' : g.name;
+            const yearTitle = document.createElement('h3');
+            yearTitle.className = 'year-row-title';
+            yearTitle.textContent = sj.naam;
 
-            const weeksRow = document.createElement('div');
-            weeksRow.className = 'group-weeks';
+            const timeline = document.createElement('div');
+            timeline.className = 'year-timeline';
 
-            g.weeks.forEach(w => {
+            // 1. Map contexts. A holiday receives an explicit period context IF it is natively surrounded by the exact same period!
+            const contexts = weeks.map((w, index) => {
+                if (w.periode_naam) return w.periode_naam;
+
+                let leftContext = null;
+                for (let i = index - 1; i >= 0; i--) {
+                    if (weeks[i].periode_naam) { leftContext = weeks[i].periode_naam; break; }
+                }
+                
+                let rightContext = null;
+                for (let i = index + 1; i < weeks.length; i++) {
+                    if (weeks[i].periode_naam) { rightContext = weeks[i].periode_naam; break; }
+                }
+
+                if (leftContext && leftContext === rightContext) {
+                    return leftContext; // The holiday is fully encased inside the period!
+                }
+                return `between_${leftContext}_${rightContext}_idx_${index}`; // External boundaries
+            });
+
+            let seenPeriods = new Set();
+            let lastPeriod = null;
+            let currentPeriodWeek = 1;
+
+            weeks.forEach((w, index) => {
+                const col = document.createElement('div');
+                col.className = 'timeline-col';
+
+                // Sequence boundary logic using our dynamically enveloped Contexts
+                const currentCtx = contexts[index];
+                const prevCtx = index > 0 ? contexts[index-1] : null;
+                const nextCtx = index < weeks.length - 1 ? contexts[index+1] : null;
+
+                // Reset period week counter if crossing a logical boundary context
+                if (currentCtx !== prevCtx) {
+                    currentPeriodWeek = 1;
+                }
+
+                // Label logic: only print the period name on its very first appearance
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'timeline-label';
+                
+                if (w.periode_naam && !seenPeriods.has(w.periode_naam)) {
+                    labelDiv.textContent = w.periode_naam;
+                    seenPeriods.add(w.periode_naam);
+                } else {
+                    labelDiv.innerHTML = '&nbsp;'; // visual spacer
+                }
+
                 const block = document.createElement('div');
                 block.className = 'week-block';
-                block.textContent = w.kalenderweek;
+                block.style.flexDirection = 'column'; // Inline enforcement to bypass css cache
+                
+                const isHoliday = w.week_type && w.week_type.toLowerCase().includes('vakantie');
+                let pText = '&nbsp;';
+
+                if (!isHoliday) {
+                    pText = currentPeriodWeek;
+                    currentPeriodWeek++;
+                }
+
+                // Explicitly inject divs on new lines
+                block.innerHTML = `
+                    <div style="font-size: 0.85rem; font-weight: bold; line-height: 1;">${pText}</div>
+                    <div style="font-size: 0.55rem; font-weight: 600; line-height: 1; margin-top: 2px; opacity: 0.85;">w${w.kalenderweek}</div>
+                `;
                 
                 if (w.is_lesweek) {
                     block.classList.add('lesweek');
-                } else if (w.week_type && w.week_type.toLowerCase().includes('vakantie')) {
+                } else if (isHoliday) {
                     block.classList.add('holiday');
                 } else {
                     block.classList.add('special');
                 }
 
-                // Tooltip displays the type, answering the 'mouseover on holiday' request intuitively
+                // End-sequence Boundary logic
+                const isStart = index === 0 || prevCtx !== currentCtx;
+                const isEnd = index === weeks.length - 1 || nextCtx !== currentCtx;
+
+                if (isStart) block.classList.add('start-block');
+                if (isEnd) {
+                    block.classList.add('end-block');
+                    col.style.marginRight = '1.25rem'; // Explicit geometric gap after sequence finishes
+                }
+
+                // Tooltip logic
                 const tooltipText = w.periode_naam ? `W${w.kalenderweek}: ${w.startdatum} | ${w.periode_naam}` : `W${w.kalenderweek}: ${w.startdatum} | ${w.week_type}`;
                 block.setAttribute('data-tooltip', tooltipText);
+
+                col.appendChild(labelDiv);
+                col.appendChild(block);
+                timeline.appendChild(col);
                 
-                weeksRow.appendChild(block);
+                if (w.periode_naam) lastPeriod = w.periode_naam;
             });
 
-            groupDiv.appendChild(labelDiv);
-            groupDiv.appendChild(weeksRow);
-            timeline.appendChild(groupDiv);
-        });
+            yearRow.appendChild(yearTitle);
+            yearRow.appendChild(timeline);
+            allYearsCont.appendChild(yearRow);
+        }
 
     } catch (err) {
         console.error('Error rendering visualizer', err);

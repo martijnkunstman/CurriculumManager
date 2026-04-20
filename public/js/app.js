@@ -136,42 +136,57 @@ async function renderYearVisualizer() {
         dom.visualizerContainer.innerHTML = '<div class="year-timeline"></div>';
         const timeline = dom.visualizerContainer.querySelector('.year-timeline');
 
-        let lastLabel = null;
+        // Group into contiguous blocks based on periode
+        let groups = [];
+        let currentGroup = null;
 
         weeks.forEach(w => {
-            const currentLabel = w.periode_naam || w.week_type || 'Special';
-            
-            const col = document.createElement('div');
-            col.className = 'timeline-col';
-
-            // Top label (only show if it changed to keep UI clean)
-            const labelHead = document.createElement('div');
-            labelHead.className = 'timeline-label';
-            if (currentLabel !== lastLabel) {
-                labelHead.textContent = currentLabel;
-                lastLabel = currentLabel;
-            } else {
-                labelHead.innerHTML = '&nbsp;';
+            const groupName = w.periode_naam || 'holiday';
+            if (!currentGroup || currentGroup.name !== groupName) {
+                currentGroup = {
+                    name: groupName,
+                    isHoliday: !w.periode_naam,
+                    weeks: []
+                };
+                groups.push(currentGroup);
             }
+            currentGroup.weeks.push(w);
+        });
 
-            const block = document.createElement('div');
-            block.className = 'week-block';
-            block.textContent = w.kalenderweek;
-            
-            if (w.is_lesweek) {
-                block.classList.add('lesweek');
-            } else if (w.week_type && w.week_type.toLowerCase().includes('vakantie')) {
-                block.classList.add('holiday');
-            } else {
-                block.classList.add('special');
-            }
+        groups.forEach(g => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'contiguous-group';
 
-            // Setup dynamic tooltip data
-            block.setAttribute('data-tooltip', `W${w.kalenderweek}: ${w.startdatum} | ${currentLabel}`);
-            
-            col.appendChild(labelHead);
-            col.appendChild(block);
-            timeline.appendChild(col);
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'group-label';
+            labelDiv.textContent = g.isHoliday ? '' : g.name;
+
+            const weeksRow = document.createElement('div');
+            weeksRow.className = 'group-weeks';
+
+            g.weeks.forEach(w => {
+                const block = document.createElement('div');
+                block.className = 'week-block';
+                block.textContent = w.kalenderweek;
+                
+                if (w.is_lesweek) {
+                    block.classList.add('lesweek');
+                } else if (w.week_type && w.week_type.toLowerCase().includes('vakantie')) {
+                    block.classList.add('holiday');
+                } else {
+                    block.classList.add('special');
+                }
+
+                // Tooltip displays the type, answering the 'mouseover on holiday' request intuitively
+                const tooltipText = w.periode_naam ? `W${w.kalenderweek}: ${w.startdatum} | ${w.periode_naam}` : `W${w.kalenderweek}: ${w.startdatum} | ${w.week_type}`;
+                block.setAttribute('data-tooltip', tooltipText);
+                
+                weeksRow.appendChild(block);
+            });
+
+            groupDiv.appendChild(labelDiv);
+            groupDiv.appendChild(weeksRow);
+            timeline.appendChild(groupDiv);
         });
 
     } catch (err) {

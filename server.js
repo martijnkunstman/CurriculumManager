@@ -70,6 +70,7 @@ setupCrudRoutes('ka_schooljaren');
 setupCrudRoutes('ka_periodes');
 setupCrudRoutes('ka_week_types');
 setupCrudRoutes('ka_weken');
+setupCrudRoutes('leereenheid_types');
 setupCrudRoutes('cohorten');
 setupCrudRoutes('leereenheden');
 setupCrudRoutes('cohort_leereenheden');
@@ -231,6 +232,44 @@ app.put('/api/cohort-planning/:id', (req, res) => {
             res.json({ updated: this.changes });
         }
     );
+});
+
+// Full database SQL export
+app.get('/api/export-sql', (req, res) => {
+    const tables = [
+        'ka_week_types', 'ka_schooljaren', 'ka_periodes', 'ka_weken',
+        'leereenheid_types', 'leereenheden', 'cohorten',
+        'cohort_leereenheden', 'cohort_schooljaren', 'cohort_leereenheid_planning'
+    ];
+
+    function sqlVal(v) {
+        if (v === null || v === undefined) return 'NULL';
+        if (typeof v === 'number') return v;
+        return `'${String(v).replace(/'/g, "''")}'`;
+    }
+
+    const promises = tables.map(table =>
+        new Promise((resolve, reject) => {
+            db.all(`SELECT * FROM ${table}`, [], (err, rows) => {
+                if (err) reject(err);
+                else resolve({ table, rows });
+            });
+        })
+    );
+
+    Promise.all(promises).then(results => {
+        let sql = `-- Database Export\n-- Generated: ${new Date().toISOString()}\n\n`;
+        results.forEach(({ table, rows }) => {
+            if (!rows.length) return;
+            const cols = Object.keys(rows[0]);
+            const colList = cols.map(c => `\`${c}\``).join(', ');
+            const valList = rows.map(row => `(${cols.map(c => sqlVal(row[c])).join(', ')})`).join(',\n  ');
+            sql += `-- ${table}\nINSERT INTO \`${table}\` (${colList}) VALUES\n  ${valList};\n\n`;
+        });
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', 'attachment; filename="database_export.sql"');
+        res.send(sql);
+    }).catch(err => res.status(500).json({ error: err.message }));
 });
 
 // Start Server

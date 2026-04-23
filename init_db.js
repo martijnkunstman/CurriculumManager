@@ -55,6 +55,11 @@ CREATE TABLE cohorten (
   naam TEXT NOT NULL UNIQUE
 );
 
+CREATE TABLE leereenheid_types (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  naam TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE leereenheden (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   naam TEXT NOT NULL UNIQUE,
@@ -88,7 +93,7 @@ function initializeDatabase() {
   const sqlContent = fs.readFileSync(SQL_FILE_PATH, 'utf8');
 
   // Extract INSERT statements for the ka_ tables
-  const tablesToExtract = ['ka_schooljaren', 'ka_periodes', 'ka_week_types', 'ka_weken', 'cohorten', 'leereenheden', 'cohort_leereenheden', 'cohort_schooljaren'];
+  const tablesToExtract = ['ka_schooljaren', 'ka_periodes', 'ka_week_types', 'ka_weken', 'leereenheid_types', 'cohorten', 'leereenheden', 'cohort_leereenheden', 'cohort_schooljaren'];
   const inserts = [];
 
   tablesToExtract.forEach(table => {

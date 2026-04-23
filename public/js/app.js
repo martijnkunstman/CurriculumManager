@@ -12,6 +12,7 @@ const tableTitles = {
     'ka_weken': 'Manage Weeks',
     'year_visualizer': 'Year Visualizer',
     'cohorten': 'Manage Cohorts',
+    'leereenheid_types': 'Manage Leereenheid Types',
     'leereenheden': 'Manage Leereenheden',
     'cohort_schooljaren': 'Cohort Years',
     'cohort_planning': 'Cohort Planning'
@@ -356,53 +357,80 @@ const fallbackSchemas = {
     'ka_periodes': { id: 0, schooljaar_id: 0, volgnummer: 0, naam: '' },
     'ka_week_types': { id: 0, is_lesweek: 0, omschrijving: '' },
     'ka_weken': { id: 0, schooljaar_id: 0, periode_id: 0, volgnummer_schooljaar: 0, kalenderweek: 0, startdatum: '', einddatum: '', type_id: 0 },
+    'leereenheid_types': { id: 0, naam: '' },
     'cohorten': { id: 0, naam: '' },
-    'leereenheden': { id: 0, naam: '' }
+    'leereenheden': { id: 0, naam: '', type: '' }
 };
 
-function generateForm(dataRow = null) {
+function generateForm(dataRow = null, selectFields = {}) {
     dom.form.innerHTML = '';
-    
+
     let template = dataRow || (state.data.length > 0 ? state.data[0] : fallbackSchemas[state.currentTable]);
-    
+
     if (!template) {
-       dom.form.innerHTML = '<p>No schema available to add new.</p>';
-       return;
+        dom.form.innerHTML = '<p>No schema available to add new.</p>';
+        return;
     }
 
     Object.keys(template).forEach(key => {
-        if (key === 'id') return; // Don't edit ID
-        
+        if (key === 'id') return;
+
         const group = document.createElement('div');
         group.className = 'form-group';
-        
+
         const label = document.createElement('label');
         label.textContent = key.replace(/_/g, ' ').toUpperCase();
-        
-        const input = document.createElement('input');
-        input.className = 'form-control';
-        input.name = key;
-        
-        if (dataRow) {
-            input.value = dataRow[key];
-        } else if (key.includes('datum')) {
-            input.type = 'date';
-        } else if (typeof template[key] === 'number') {
-            input.type = 'number';
+
+        let field;
+        if (selectFields[key]) {
+            field = document.createElement('select');
+            field.className = 'form-control';
+            field.name = key;
+            const blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = '-- Select --';
+            field.appendChild(blank);
+            selectFields[key].forEach(opt => {
+                const o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                if (dataRow && dataRow[key] === opt.value) o.selected = true;
+                field.appendChild(o);
+            });
         } else {
-            input.type = 'text';
+            field = document.createElement('input');
+            field.className = 'form-control';
+            field.name = key;
+            if (dataRow) {
+                field.value = dataRow[key] ?? '';
+            } else if (key.includes('datum')) {
+                field.type = 'date';
+            } else if (typeof template[key] === 'number') {
+                field.type = 'number';
+            } else {
+                field.type = 'text';
+            }
         }
 
         group.appendChild(label);
-        group.appendChild(input);
+        group.appendChild(field);
         dom.form.appendChild(group);
     });
 }
 
-window.editRecord = (id) => {
+async function getSelectFields() {
+    if (state.currentTable === 'leereenheden') {
+        const types = await fetchData('leereenheid_types');
+        return { type: types.map(t => ({ value: t.naam, label: t.naam })) };
+    }
+    return {};
+}
+
+window.editRecord = async (id) => {
     state.editingId = id;
     const record = state.data.find(d => d.id === id);
-    generateForm(record);
+    const selectFields = await getSelectFields();
+    generateForm(record, selectFields);
     openModal(true);
 };
 
@@ -828,38 +856,25 @@ dom.planningCohortSelect.addEventListener('change', () => {
     if (state.currentTable === 'cohort_planning') renderCohortPlanning();
 });
 
-dom.btnExportSql.addEventListener('click', () => {
-    const cohortId = dom.btnExportSql.dataset.cohortId;
-    const planningData = JSON.parse(dom.btnExportSql.dataset.planningJson || '[]');
-    const cohortName = dom.planningCohortSelect.options[dom.planningCohortSelect.selectedIndex]?.text || 'cohort';
-
-    if (!planningData.length) { alert('Geen planningsdata om te exporteren.'); return; }
-
-    const rows = planningData.map(p =>
-        `(${p.cohort_id}, ${p.leereenheid_id}, ${p.start_week_id}, ${p.eind_week_id})`
-    ).join(',\n  ');
-
-    const sql = [
-        `-- Cohort Planning Export: ${cohortName}`,
-        `-- Gegenereerd op: ${new Date().toISOString()}`,
-        ``,
-        `DELETE FROM cohort_leereenheid_planning WHERE cohort_id = ${cohortId};`,
-        ``,
-        `INSERT INTO cohort_leereenheid_planning (cohort_id, leereenheid_id, start_week_id, eind_week_id) VALUES`,
-        `  ${rows};`
-    ].join('\n');
-
-    const blob = new Blob([sql], { type: 'text/sql' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `planning_${cohortName.replace(/\s+/g, '_')}.sql`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+dom.btnExportSql.addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/export-sql');
+        const text = await res.text();
+        const blob = new Blob([text], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `database_export_${new Date().toISOString().slice(0,10)}.sql`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (err) {
+        console.error('Export failed', err);
+    }
 });
 
-dom.btnAdd.addEventListener('click', () => {
+dom.btnAdd.addEventListener('click', async () => {
     state.editingId = null;
-    generateForm();
+    const selectFields = await getSelectFields();
+    generateForm(null, selectFields);
     openModal();
 });
 

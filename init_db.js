@@ -57,7 +57,8 @@ CREATE TABLE cohorten (
 
 CREATE TABLE leereenheden (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  naam TEXT NOT NULL UNIQUE
+  naam TEXT NOT NULL UNIQUE,
+  type TEXT
 );
 
 CREATE TABLE cohort_leereenheden (

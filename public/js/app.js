@@ -14,7 +14,6 @@ const tableTitles = {
     'cohorten': 'Manage Cohorts',
     'leereenheden': 'Manage Leereenheden',
     'cohort_schooljaren': 'Cohort Years',
-    'cohort_connections': 'Connect Leereenheden',
     'cohort_planning': 'Cohort Planning'
 };
 
@@ -25,9 +24,6 @@ const dom = {
     tableBody: document.getElementById('table-body'),
     tableContainer: document.getElementById('table-container'),
     visualizerContainer: document.getElementById('visualizer-container'),
-    connectionsContainer: document.getElementById('connections-container'),
-    cohortSelect: document.getElementById('cohort-select'),
-    leereenhedenList: document.getElementById('leereenheden-list'),
     cohortYearsContainer: document.getElementById('cohort-years-container'),
     cohortYearSelect: document.getElementById('cohort-year-select'),
     addSchooljaarSelect: document.getElementById('add-schooljaar-select'),
@@ -38,6 +34,7 @@ const dom = {
     planningCalendar: document.getElementById('planning-calendar'),
     planningPalette: document.getElementById('planning-palette'),
     paletteList: document.getElementById('palette-list'),
+    btnExportSql: document.getElementById('btn-export-sql'),
     yearSelect: document.getElementById('year-select'),
     btnAdd: document.getElementById('btn-add-new'),
     modal: document.getElementById('edit-modal'),
@@ -82,11 +79,10 @@ async function loadSchooljarenDropdown() {
 
 const CONTENT_CONTAINERS = {
     year_visualizer:    'visualizerContainer',
-    cohort_connections: 'connectionsContainer',
     cohort_schooljaren: 'cohortYearsContainer',
     cohort_planning:    'planningContainer',
 };
-const ALL_CONTAINERS = ['tableContainer','visualizerContainer','connectionsContainer','cohortYearsContainer','planningContainer'];
+const ALL_CONTAINERS = ['tableContainer','visualizerContainer','cohortYearsContainer','planningContainer'];
 
 function showView(tableName) {
     ALL_CONTAINERS.forEach(k => { dom[k].style.display = 'none'; });
@@ -103,10 +99,9 @@ async function loadTable(tableName) {
 
     showView(tableName);
 
-    if (tableName === 'year_visualizer')    { await renderYearVisualizer();       return; }
-    if (tableName === 'cohort_connections') { await loadCohortConnectionsView();  return; }
-    if (tableName === 'cohort_schooljaren') { await loadCohortYearsView();        return; }
-    if (tableName === 'cohort_planning')    { await loadCohortPlanningView();     return; }
+    if (tableName === 'year_visualizer')    { await renderYearVisualizer();    return; }
+    if (tableName === 'cohort_schooljaren') { await loadCohortYearsView();     return; }
+    if (tableName === 'cohort_planning')    { await loadCohortPlanningView();  return; }
 
     state.data = await fetchData(tableName);
     renderTable();
@@ -301,75 +296,6 @@ async function renderYearVisualizer() {
     }
 }
 
-async function loadCohortConnectionsView() {
-    const cohorts = await fetchData('cohorten');
-    populateSelect(dom.cohortSelect, cohorts, '-- Select a Cohort --');
-    dom.leereenhedenList.innerHTML = '';
-}
-
-async function renderCohortConnections() {
-    const cohortId = dom.cohortSelect.value;
-    if (!cohortId) {
-        dom.leereenhedenList.innerHTML = '';
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/cohort-connections/${cohortId}`);
-        const json = await res.json();
-        const leereenheden = json.data || [];
-
-        dom.leereenhedenList.innerHTML = '';
-        leereenheden.forEach(l => {
-            const card = document.createElement('div');
-            card.style.border = '1px solid var(--border-color)';
-            card.style.padding = '1rem';
-            card.style.borderRadius = 'var(--radius-md)';
-            card.style.display = 'flex';
-            card.style.alignItems = 'center';
-            card.style.gap = '0.5rem';
-            card.style.backgroundColor = 'var(--surface-color)';
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = l.is_connected === 1;
-            checkbox.id = `leereenheid-${l.id}`;
-            checkbox.style.width = '1.2rem';
-            checkbox.style.height = '1.2rem';
-            
-            checkbox.addEventListener('change', async (e) => {
-                const isChecked = e.target.checked;
-                try {
-                    await fetch(`/api/cohort-connections/${cohortId}/toggle`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            leereenheid_id: l.id,
-                            is_connected: isChecked
-                        })
-                    });
-                } catch (err) {
-                    console.error('Error toggling connection', err);
-                    e.target.checked = !isChecked; // revert on error
-                }
-            });
-
-            const label = document.createElement('label');
-            label.htmlFor = `leereenheid-${l.id}`;
-            label.textContent = l.naam;
-            label.style.fontWeight = '500';
-            label.style.cursor = 'pointer';
-
-            card.appendChild(checkbox);
-            card.appendChild(label);
-            dom.leereenhedenList.appendChild(card);
-        });
-
-    } catch (err) {
-        console.error('Error fetching connections', err);
-    }
-}
-
 async function loadCohortYearsView() {
     const [cohorts, schooljaren] = await Promise.all([
         fetchData('cohorten'),
@@ -382,10 +308,7 @@ async function loadCohortYearsView() {
 
 async function renderCohortYearsList() {
     const cohortId = dom.cohortYearSelect.value;
-    if (!cohortId) {
-        dom.cohortYearsList.innerHTML = '';
-        return;
-    }
+    if (!cohortId) { dom.cohortYearsList.innerHTML = ''; return; }
 
     try {
         const res = await fetch(`/api/cohort-schooljaren/${cohortId}`);
@@ -395,32 +318,25 @@ async function renderCohortYearsList() {
         dom.cohortYearsList.innerHTML = '';
         years.forEach((y, index) => {
             const li = document.createElement('li');
-            li.style.display = 'flex';
-            li.style.justifyContent = 'space-between';
-            li.style.alignItems = 'center';
-            li.style.padding = '0.75rem';
-            li.style.borderBottom = '1px solid var(--border-color)';
-            
+            li.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:0.75rem; border-bottom:1px solid var(--border-color);';
+
             const span = document.createElement('span');
             span.innerHTML = `<strong>Year ${index + 1}:</strong> ${y.naam}`;
-            
+
             const btn = document.createElement('button');
             btn.className = 'btn-icon delete';
             btn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
             btn.title = 'Remove Year';
             btn.onclick = async () => {
-                if(!confirm('Remove this year from cohort?')) return;
-                try {
-                    await fetch(`/api/cohort-schooljaren/${y.id}`, { method: 'DELETE' });
-                    renderCohortYearsList(); // refresh
-                } catch(e) { console.error(e); }
+                if (!confirm('Remove this year from cohort?')) return;
+                await fetch(`/api/cohort-schooljaren/${y.id}`, { method: 'DELETE' });
+                renderCohortYearsList();
             };
 
             li.appendChild(span);
             li.appendChild(btn);
             dom.cohortYearsList.appendChild(li);
         });
-
     } catch (err) {
         console.error('Error fetching cohort years', err);
     }
@@ -512,15 +428,27 @@ const LANE_HEIGHT = 34;
 let weekOffsetsByYear = {};
 let resizeState = null;
 
-function getLeerColor(id) {
+function getLeerColor(type, id) {
+    if (type) {
+        let hash = 0;
+        for (let i = 0; i < type.length; i++) hash = (hash * 31 + type.charCodeAt(i)) & 0xffffffff;
+        return PLANNING_COLORS[Math.abs(hash) % PLANNING_COLORS.length];
+    }
     return PLANNING_COLORS[id % PLANNING_COLORS.length];
 }
 
 async function loadCohortPlanningView() {
     const cohorts = await fetchData('cohorten');
     populateSelect(dom.planningCohortSelect, cohorts, '-- Selecteer een cohort --');
-    dom.planningCalendar.innerHTML = '';
-    dom.planningPalette.style.display = 'none';
+    const saved = localStorage.getItem('planning_cohort_id');
+    if (saved && cohorts.find(c => String(c.id) === saved)) {
+        dom.planningCohortSelect.value = saved;
+        await renderCohortPlanning();
+    } else {
+        dom.planningCalendar.innerHTML = '';
+        dom.planningPalette.style.display = 'none';
+        dom.btnExportSql.style.display = 'none';
+    }
 }
 
 async function renderCohortPlanning() {
@@ -528,9 +456,11 @@ async function renderCohortPlanning() {
     if (!cohortId) {
         dom.planningCalendar.innerHTML = '';
         dom.planningPalette.style.display = 'none';
+        dom.btnExportSql.style.display = 'none';
+        localStorage.removeItem('planning_cohort_id');
         return;
     }
-
+    localStorage.setItem('planning_cohort_id', cohortId);
     dom.planningCalendar.innerHTML = '<p style="color:var(--text-secondary)">Loading...</p>';
 
     const [weeksRes, planRes, leerRes] = await Promise.all([
@@ -544,7 +474,10 @@ async function renderCohortPlanning() {
     const leereenheden = leerRes.data || [];
 
     renderPalette(leereenheden);
-    dom.planningPalette.style.display = weeks.length ? 'flex' : 'none';
+    dom.planningPalette.style.display = leereenheden.length ? 'flex' : 'none';
+    dom.btnExportSql.style.display = planningData.length ? 'inline-flex' : 'none';
+    dom.btnExportSql.dataset.cohortId = cohortId;
+    dom.btnExportSql.dataset.planningJson = JSON.stringify(planningData);
     renderPlanningTimeline(weeks, planningData, cohortId);
 }
 
@@ -555,7 +488,7 @@ function renderPalette(leereenheden) {
         chip.className = 'palette-chip';
         chip.draggable = true;
         chip.textContent = l.naam;
-        chip.style.borderLeftColor = getLeerColor(l.id);
+        chip.style.borderLeftColor = getLeerColor(l.type, l.id);
         chip.addEventListener('dragstart', e => {
             e.dataTransfer.setData('leereenheid_id', l.id);
             e.dataTransfer.effectAllowed = 'copy';
@@ -739,7 +672,7 @@ function placeBarsForYear(planEntries, barsSection, offsets) {
         const top = laneIdx * LANE_HEIGHT + 4;
         const left = startOff.left + 2;
         const width = endOff.right - startOff.left - 4;
-        const color = getLeerColor(entry.leereenheid_id);
+        const color = getLeerColor(entry.leereenheid_type, entry.leereenheid_id);
 
         const bar = document.createElement('div');
         bar.className = 'leereenheid-bar';
@@ -870,23 +803,14 @@ dom.yearSelect.addEventListener('change', () => {
     }
 });
 
-dom.cohortSelect.addEventListener('change', () => {
-    if (state.currentTable === 'cohort_connections') {
-        renderCohortConnections();
-    }
-});
-
 dom.cohortYearSelect.addEventListener('change', () => {
-    if (state.currentTable === 'cohort_schooljaren') {
-        renderCohortYearsList();
-    }
+    if (state.currentTable === 'cohort_schooljaren') renderCohortYearsList();
 });
 
 dom.btnAddCohortYear.addEventListener('click', async () => {
     const cohortId = dom.cohortYearSelect.value;
     const schooljaarId = dom.addSchooljaarSelect.value;
     if (!cohortId || !schooljaarId) return;
-
     try {
         await fetch(`/api/cohort-schooljaren/${cohortId}`, {
             method: 'POST',
@@ -902,6 +826,35 @@ dom.btnAddCohortYear.addEventListener('click', async () => {
 
 dom.planningCohortSelect.addEventListener('change', () => {
     if (state.currentTable === 'cohort_planning') renderCohortPlanning();
+});
+
+dom.btnExportSql.addEventListener('click', () => {
+    const cohortId = dom.btnExportSql.dataset.cohortId;
+    const planningData = JSON.parse(dom.btnExportSql.dataset.planningJson || '[]');
+    const cohortName = dom.planningCohortSelect.options[dom.planningCohortSelect.selectedIndex]?.text || 'cohort';
+
+    if (!planningData.length) { alert('Geen planningsdata om te exporteren.'); return; }
+
+    const rows = planningData.map(p =>
+        `(${p.cohort_id}, ${p.leereenheid_id}, ${p.start_week_id}, ${p.eind_week_id})`
+    ).join(',\n  ');
+
+    const sql = [
+        `-- Cohort Planning Export: ${cohortName}`,
+        `-- Gegenereerd op: ${new Date().toISOString()}`,
+        ``,
+        `DELETE FROM cohort_leereenheid_planning WHERE cohort_id = ${cohortId};`,
+        ``,
+        `INSERT INTO cohort_leereenheid_planning (cohort_id, leereenheid_id, start_week_id, eind_week_id) VALUES`,
+        `  ${rows};`
+    ].join('\n');
+
+    const blob = new Blob([sql], { type: 'text/sql' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `planning_${cohortName.replace(/\s+/g, '_')}.sql`;
+    a.click();
+    URL.revokeObjectURL(a.href);
 });
 
 dom.btnAdd.addEventListener('click', () => {

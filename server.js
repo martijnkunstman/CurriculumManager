@@ -168,7 +168,7 @@ app.delete('/api/cohort-schooljaren/:id', (req, res) => {
 // Cohort planning endpoints
 app.get('/api/cohort-planning/:cohort_id', (req, res) => {
     const sql = `
-        SELECT clp.id, clp.leereenheid_id, l.naam AS leereenheid_naam,
+        SELECT clp.id, clp.leereenheid_id, l.naam AS leereenheid_naam, l.type AS leereenheid_type,
                clp.start_week_id, clp.eind_week_id,
                sw.volgnummer_schooljaar AS start_volgnummer,
                ew.volgnummer_schooljaar AS eind_volgnummer,

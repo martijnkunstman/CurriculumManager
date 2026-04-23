@@ -44,9 +44,6 @@
                 <a href="#" class="nav-link" data-target="cohort_schooljaren">
                     <ion-icon name="list-circle-outline"></ion-icon> Cohort Years
                 </a>
-                <a href="#" class="nav-link" data-target="cohort_connections">
-                    <ion-icon name="git-network-outline"></ion-icon> Connect Leereenheden
-                </a>
                 <a href="#" class="nav-link" data-target="cohort_planning">
                     <ion-icon name="calendar-number-outline"></ion-icon> Cohort Planning
                 </a>
@@ -84,19 +81,6 @@
                     <!-- Blocks injected dynamically via JS -->
                 </div>
 
-                <!-- Connections Container -->
-                <div class="connections-container fade-in" id="connections-container" style="display: none;">
-                    <div style="margin-bottom: 20px;">
-                        <label for="cohort-select" style="font-weight: 500;">Select Cohort:</label>
-                        <select id="cohort-select" class="form-control" style="width: 300px; display: inline-block; margin-left: 10px;">
-                            <option value="">-- Select a Cohort --</option>
-                        </select>
-                    </div>
-                    <div id="leereenheden-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
-                        <!-- Checkboxes injected dynamically via JS -->
-                    </div>
-                </div>
-
                 <!-- Cohort Years Container -->
                 <div class="connections-container fade-in" id="cohort-years-container" style="display: none;">
                     <div style="margin-bottom: 20px;">
@@ -111,15 +95,17 @@
                         </select>
                         <button class="btn-primary" id="btn-add-cohort-year">Add Year</button>
                     </div>
-                    <ul id="cohort-years-list" style="list-style: none; padding: 0;">
-                        <!-- List injected dynamically via JS -->
-                    </ul>
+                    <ul id="cohort-years-list" style="list-style: none; padding: 0;"></ul>
                 </div>
+
                 <!-- Cohort Planning Container -->
                 <div class="planning-container fade-in" id="cohort-planning-container" style="display:none;">
                     <div class="planning-toolbar">
                         <label style="font-weight:500;">Cohort:</label>
                         <select id="planning-cohort-select" class="form-control" style="width:220px;"></select>
+                        <button class="btn-secondary" id="btn-export-sql" style="display:none;">
+                            <ion-icon name="download-outline"></ion-icon> Export SQL
+                        </button>
                     </div>
                     <div class="planning-workspace">
                         <div id="planning-calendar" class="planning-calendar-area"></div>

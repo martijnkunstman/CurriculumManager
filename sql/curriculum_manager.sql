@@ -888,3 +888,51 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+-- 1. Create the Cohorten table (Same as before)
+CREATE TABLE `cohorten` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `naam` varchar(100) NOT NULL,
+  `start_schooljaar_id` int(11) NOT NULL,
+  `aantal_jaren` int(11) DEFAULT 3,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`start_schooljaar_id`) REFERENCES `ka_schooljaren` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 2. Create the Leereenheid Types table (Same as before)
+CREATE TABLE `leereenheid_types` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `naam` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 3. UPDATED: Create the Leereenheden table (Now independent and reusable)
+-- Notice that cohort_id, start_week_id, and eind_week_id have been removed.
+CREATE TABLE `leereenheden` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `type_id` int(11) NOT NULL,
+  `naam` varchar(100) NOT NULL,
+  `omschrijving` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`type_id`) REFERENCES `leereenheid_types` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 4. NEW: Planning/Junction table to link Cohorten, Leereenheden, and Time
+-- This table determines WHEN a specific cohort takes a specific leereenheid.
+CREATE TABLE `cohort_leereenheid_planning` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `cohort_id` int(11) NOT NULL,
+  `leereenheid_id` int(11) NOT NULL,
+  `start_week_id` int(11) NOT NULL,
+  `eind_week_id` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`cohort_id`) REFERENCES `cohorten` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`leereenheid_id`) REFERENCES `leereenheden` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`start_week_id`) REFERENCES `ka_weken` (`id`),
+  FOREIGN KEY (`eind_week_id`) REFERENCES `ka_weken` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `leereenheid_types` (`naam`) 
+VALUES 
+  ('module'),
+  ('ontwikkelweek');

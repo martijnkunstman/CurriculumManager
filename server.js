@@ -70,6 +70,9 @@ setupCrudRoutes('ka_schooljaren');
 setupCrudRoutes('ka_periodes');
 setupCrudRoutes('ka_week_types');
 setupCrudRoutes('ka_weken');
+setupCrudRoutes('ka_cohorten');
+setupCrudRoutes('ka_leereenheden');
+setupCrudRoutes('ka_cohort_leereenheden');
 
 // Special endpoint for year visualizer
 app.get('/api/year-view/:schooljaar_id', (req, res) => {
@@ -94,6 +97,40 @@ app.get('/api/year-view/:schooljaar_id', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ data: rows });
     });
+});
+
+// Special endpoint for cohort-leereenheden connections
+app.get('/api/cohort-connections/:cohort_id', (req, res) => {
+    const sql = `
+        SELECT l.*, 
+            CASE WHEN cl.id IS NOT NULL THEN 1 ELSE 0 END as is_connected
+        FROM ka_leereenheden l
+        LEFT JOIN ka_cohort_leereenheden cl 
+            ON l.id = cl.leereenheid_id AND cl.cohort_id = ?
+    `;
+    db.all(sql, [req.params.cohort_id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+app.post('/api/cohort-connections/:cohort_id/toggle', (req, res) => {
+    const { leereenheid_id, is_connected } = req.body;
+    const cohort_id = req.params.cohort_id;
+    
+    if (is_connected) {
+        const sql = `INSERT INTO ka_cohort_leereenheden (cohort_id, leereenheid_id) VALUES (?, ?)`;
+        db.run(sql, [cohort_id, leereenheid_id], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: 'Connected' });
+        });
+    } else {
+        const sql = `DELETE FROM ka_cohort_leereenheden WHERE cohort_id = ? AND leereenheid_id = ?`;
+        db.run(sql, [cohort_id, leereenheid_id], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: 'Disconnected' });
+        });
+    }
 });
 
 // Start Server

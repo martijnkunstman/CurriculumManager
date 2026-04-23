@@ -35,6 +35,15 @@
                 <a href="#" class="nav-link" data-target="year_visualizer">
                     <ion-icon name="map-outline"></ion-icon> Year Visualizer
                 </a>
+                <a href="#" class="nav-link" data-target="ka_cohorten">
+                    <ion-icon name="people-outline"></ion-icon> Cohorten
+                </a>
+                <a href="#" class="nav-link" data-target="ka_leereenheden">
+                    <ion-icon name="book-outline"></ion-icon> Leereenheden
+                </a>
+                <a href="#" class="nav-link" data-target="cohort_connections">
+                    <ion-icon name="git-network-outline"></ion-icon> Connect Leereenheden
+                </a>
             </nav>
         </aside>
 
@@ -67,6 +76,19 @@
                 <!-- Visualization Container -->
                 <div class="visualizer-container fade-in" id="visualizer-container" style="display: none;">
                     <!-- Blocks injected dynamically via JS -->
+                </div>
+
+                <!-- Connections Container -->
+                <div class="connections-container fade-in" id="connections-container" style="display: none;">
+                    <div style="margin-bottom: 20px;">
+                        <label for="cohort-select" style="font-weight: 500;">Select Cohort:</label>
+                        <select id="cohort-select" class="form-control" style="width: 300px; display: inline-block; margin-left: 10px;">
+                            <option value="">-- Select a Cohort --</option>
+                        </select>
+                    </div>
+                    <div id="leereenheden-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
+                        <!-- Checkboxes injected dynamically via JS -->
+                    </div>
                 </div>
             </section>
         </main>

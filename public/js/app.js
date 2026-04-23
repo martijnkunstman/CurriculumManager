@@ -10,7 +10,10 @@ const tableTitles = {
     'ka_periodes': 'Manage Periods',
     'ka_week_types': 'Manage Week Types',
     'ka_weken': 'Manage Weeks',
-    'year_visualizer': 'Year Visualizer'
+    'year_visualizer': 'Year Visualizer',
+    'ka_cohorten': 'Manage Cohorts',
+    'ka_leereenheden': 'Manage Leereenheden',
+    'cohort_connections': 'Connect Leereenheden'
 };
 
 const dom = {
@@ -20,6 +23,9 @@ const dom = {
     tableBody: document.getElementById('table-body'),
     tableContainer: document.getElementById('table-container'),
     visualizerContainer: document.getElementById('visualizer-container'),
+    connectionsContainer: document.getElementById('connections-container'),
+    cohortSelect: document.getElementById('cohort-select'),
+    leereenhedenList: document.getElementById('leereenheden-list'),
     yearSelect: document.getElementById('year-select'),
     btnAdd: document.getElementById('btn-add-new'),
     modal: document.getElementById('edit-modal'),
@@ -65,13 +71,23 @@ async function loadTable(tableName) {
     if (tableName === 'year_visualizer') {
         dom.tableContainer.style.display = 'none';
         dom.visualizerContainer.style.display = 'block';
+        dom.connectionsContainer.style.display = 'none';
         dom.btnAdd.style.display = 'none';
-        dom.yearSelect.style.display = 'none'; // hide because we fetch all years now
+        dom.yearSelect.style.display = 'none';
         await renderYearVisualizer();
+        return;
+    } else if (tableName === 'cohort_connections') {
+        dom.tableContainer.style.display = 'none';
+        dom.visualizerContainer.style.display = 'none';
+        dom.connectionsContainer.style.display = 'block';
+        dom.btnAdd.style.display = 'none';
+        dom.yearSelect.style.display = 'none';
+        await loadCohortConnectionsView();
         return;
     } else {
         dom.tableContainer.style.display = 'block';
         dom.visualizerContainer.style.display = 'none';
+        dom.connectionsContainer.style.display = 'none';
         dom.btnAdd.style.display = 'inline-flex';
         dom.yearSelect.style.display = 'none';
     }
@@ -267,6 +283,82 @@ async function renderYearVisualizer() {
     }
 }
 
+async function loadCohortConnectionsView() {
+    // Load cohorts into select
+    const cohorts = await fetchData('ka_cohorten');
+    dom.cohortSelect.innerHTML = '<option value="">-- Select a Cohort --</option>';
+    cohorts.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.naam;
+        dom.cohortSelect.appendChild(opt);
+    });
+    dom.leereenhedenList.innerHTML = '';
+}
+
+async function renderCohortConnections() {
+    const cohortId = dom.cohortSelect.value;
+    if (!cohortId) {
+        dom.leereenhedenList.innerHTML = '';
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/cohort-connections/${cohortId}`);
+        const json = await res.json();
+        const leereenheden = json.data || [];
+
+        dom.leereenhedenList.innerHTML = '';
+        leereenheden.forEach(l => {
+            const card = document.createElement('div');
+            card.style.border = '1px solid var(--border-color)';
+            card.style.padding = '1rem';
+            card.style.borderRadius = 'var(--radius-md)';
+            card.style.display = 'flex';
+            card.style.alignItems = 'center';
+            card.style.gap = '0.5rem';
+            card.style.backgroundColor = 'var(--surface-color)';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = l.is_connected === 1;
+            checkbox.id = `leereenheid-${l.id}`;
+            checkbox.style.width = '1.2rem';
+            checkbox.style.height = '1.2rem';
+            
+            checkbox.addEventListener('change', async (e) => {
+                const isChecked = e.target.checked;
+                try {
+                    await fetch(`/api/cohort-connections/${cohortId}/toggle`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            leereenheid_id: l.id,
+                            is_connected: isChecked
+                        })
+                    });
+                } catch (err) {
+                    console.error('Error toggling connection', err);
+                    e.target.checked = !isChecked; // revert on error
+                }
+            });
+
+            const label = document.createElement('label');
+            label.htmlFor = `leereenheid-${l.id}`;
+            label.textContent = l.naam;
+            label.style.fontWeight = '500';
+            label.style.cursor = 'pointer';
+
+            card.appendChild(checkbox);
+            card.appendChild(label);
+            dom.leereenhedenList.appendChild(card);
+        });
+
+    } catch (err) {
+        console.error('Error fetching connections', err);
+    }
+}
+
 function openModal(isEdit = false) {
     dom.modalTitle.textContent = isEdit ? 'Edit Record' : 'Add New Record';
     dom.modal.classList.add('active');
@@ -276,10 +368,19 @@ function closeModal() {
     dom.modal.classList.remove('active');
 }
 
+const fallbackSchemas = {
+    'ka_schooljaren': { id: 0, naam: '', startdatum: '', einddatum: '' },
+    'ka_periodes': { id: 0, schooljaar_id: 0, volgnummer: 0, naam: '' },
+    'ka_week_types': { id: 0, is_lesweek: 0, omschrijving: '' },
+    'ka_weken': { id: 0, schooljaar_id: 0, periode_id: 0, volgnummer_schooljaar: 0, kalenderweek: 0, startdatum: '', einddatum: '', type_id: 0 },
+    'ka_cohorten': { id: 0, naam: '' },
+    'ka_leereenheden': { id: 0, naam: '' }
+};
+
 function generateForm(dataRow = null) {
     dom.form.innerHTML = '';
     
-    let template = dataRow || (state.data.length > 0 ? state.data[0] : null);
+    let template = dataRow || (state.data.length > 0 ? state.data[0] : fallbackSchemas[state.currentTable]);
     
     if (!template) {
        dom.form.innerHTML = '<p>No schema available to add new.</p>';
@@ -344,6 +445,12 @@ dom.navLinks.forEach(link => {
 dom.yearSelect.addEventListener('change', () => {
     if (state.currentTable === 'year_visualizer') {
         renderYearVisualizer();
+    }
+});
+
+dom.cohortSelect.addEventListener('change', () => {
+    if (state.currentTable === 'cohort_connections') {
+        renderCohortConnections();
     }
 });
 

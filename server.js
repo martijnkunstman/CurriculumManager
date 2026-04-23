@@ -234,7 +234,7 @@ app.put('/api/cohort-planning/:id', (req, res) => {
     );
 });
 
-// Full database SQL export
+// Full database SQL export (schema + data)
 app.get('/api/export-sql', (req, res) => {
     const tables = [
         'ka_week_types', 'ka_schooljaren', 'ka_periodes', 'ka_weken',
@@ -248,24 +248,43 @@ app.get('/api/export-sql', (req, res) => {
         return `'${String(v).replace(/'/g, "''")}'`;
     }
 
-    const promises = tables.map(table =>
-        new Promise((resolve, reject) => {
-            db.all(`SELECT * FROM ${table}`, [], (err, rows) => {
-                if (err) reject(err);
-                else resolve({ table, rows });
-            });
-        })
+    const schemaSql = `SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid`;
+
+    const schemaPromise = new Promise((resolve, reject) =>
+        db.all(schemaSql, [], (err, rows) => err ? reject(err) : resolve(rows))
     );
 
-    Promise.all(promises).then(results => {
-        let sql = `-- Database Export\n-- Generated: ${new Date().toISOString()}\n\n`;
-        results.forEach(({ table, rows }) => {
+    const dataPromises = tables.map(table =>
+        new Promise((resolve, reject) =>
+            db.all(`SELECT * FROM ${table}`, [], (err, rows) => err ? reject(err) : resolve({ table, rows }))
+        )
+    );
+
+    Promise.all([schemaPromise, Promise.all(dataPromises)]).then(([schemaDefs, dataResults]) => {
+        const ts = new Date().toISOString();
+        let sql = `-- Curriculum Manager — Full Database Export\n-- Generated: ${ts}\n\nPRAGMA foreign_keys = OFF;\n\n`;
+
+        // DROP + CREATE for each table (in export order)
+        sql += `-- --------------------------------------------------------\n-- Schema\n-- --------------------------------------------------------\n\n`;
+        tables.forEach(name => {
+            const def = schemaDefs.find(r => r.name === name);
+            if (!def) return;
+            sql += `DROP TABLE IF EXISTS \`${name}\`;\n`;
+            sql += `${def.sql};\n\n`;
+        });
+
+        // Data
+        sql += `-- --------------------------------------------------------\n-- Data\n-- --------------------------------------------------------\n\n`;
+        dataResults.forEach(({ table, rows }) => {
             if (!rows.length) return;
             const cols = Object.keys(rows[0]);
             const colList = cols.map(c => `\`${c}\``).join(', ');
-            const valList = rows.map(row => `(${cols.map(c => sqlVal(row[c])).join(', ')})`).join(',\n  ');
-            sql += `-- ${table}\nINSERT INTO \`${table}\` (${colList}) VALUES\n  ${valList};\n\n`;
+            const valList = rows.map(row => `  (${cols.map(c => sqlVal(row[c])).join(', ')})`).join(',\n');
+            sql += `INSERT INTO \`${table}\` (${colList}) VALUES\n${valList};\n\n`;
         });
+
+        sql += `PRAGMA foreign_keys = ON;\n`;
+
         res.setHeader('Content-Type', 'text/plain');
         res.setHeader('Content-Disposition', 'attachment; filename="database_export.sql"');
         res.send(sql);

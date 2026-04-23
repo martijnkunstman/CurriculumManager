@@ -70,9 +70,10 @@ setupCrudRoutes('ka_schooljaren');
 setupCrudRoutes('ka_periodes');
 setupCrudRoutes('ka_week_types');
 setupCrudRoutes('ka_weken');
-setupCrudRoutes('ka_cohorten');
-setupCrudRoutes('ka_leereenheden');
-setupCrudRoutes('ka_cohort_leereenheden');
+setupCrudRoutes('cohorten');
+setupCrudRoutes('leereenheden');
+setupCrudRoutes('cohort_leereenheden');
+setupCrudRoutes('cohort_schooljaren');
 
 // Special endpoint for year visualizer
 app.get('/api/year-view/:schooljaar_id', (req, res) => {
@@ -104,8 +105,8 @@ app.get('/api/cohort-connections/:cohort_id', (req, res) => {
     const sql = `
         SELECT l.*, 
             CASE WHEN cl.id IS NOT NULL THEN 1 ELSE 0 END as is_connected
-        FROM ka_leereenheden l
-        LEFT JOIN ka_cohort_leereenheden cl 
+        FROM leereenheden l
+        LEFT JOIN cohort_leereenheden cl 
             ON l.id = cl.leereenheid_id AND cl.cohort_id = ?
     `;
     db.all(sql, [req.params.cohort_id], (err, rows) => {
@@ -119,18 +120,105 @@ app.post('/api/cohort-connections/:cohort_id/toggle', (req, res) => {
     const cohort_id = req.params.cohort_id;
     
     if (is_connected) {
-        const sql = `INSERT INTO ka_cohort_leereenheden (cohort_id, leereenheid_id) VALUES (?, ?)`;
+        const sql = `INSERT INTO cohort_leereenheden (cohort_id, leereenheid_id) VALUES (?, ?)`;
         db.run(sql, [cohort_id, leereenheid_id], function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true, message: 'Connected' });
         });
     } else {
-        const sql = `DELETE FROM ka_cohort_leereenheden WHERE cohort_id = ? AND leereenheid_id = ?`;
+        const sql = `DELETE FROM cohort_leereenheden WHERE cohort_id = ? AND leereenheid_id = ?`;
         db.run(sql, [cohort_id, leereenheid_id], function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true, message: 'Disconnected' });
         });
     }
+});
+
+app.get('/api/cohort-schooljaren/:cohort_id', (req, res) => {
+    const sql = `
+        SELECT cs.id, s.id as schooljaar_id, s.naam
+        FROM cohort_schooljaren cs
+        JOIN ka_schooljaren s ON cs.schooljaar_id = s.id
+        WHERE cs.cohort_id = ?
+        ORDER BY cs.id ASC
+    `;
+    db.all(sql, [req.params.cohort_id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+app.post('/api/cohort-schooljaren/:cohort_id', (req, res) => {
+    const { schooljaar_id } = req.body;
+    const sql = `INSERT INTO cohort_schooljaren (cohort_id, schooljaar_id) VALUES (?, ?)`;
+    db.run(sql, [req.params.cohort_id, schooljaar_id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: { id: this.lastID, schooljaar_id } });
+    });
+});
+
+app.delete('/api/cohort-schooljaren/:id', (req, res) => {
+    db.run(`DELETE FROM cohort_schooljaren WHERE id = ?`, req.params.id, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ deleted: this.changes });
+    });
+});
+
+
+// Cohort planning endpoints
+app.get('/api/cohort-planning/:cohort_id', (req, res) => {
+    const sql = `
+        SELECT clp.id, clp.leereenheid_id, l.naam AS leereenheid_naam,
+               clp.start_week_id, clp.eind_week_id,
+               sw.volgnummer_schooljaar AS start_volgnummer,
+               ew.volgnummer_schooljaar AS eind_volgnummer,
+               sw.schooljaar_id AS schooljaar_id
+        FROM cohort_leereenheid_planning clp
+        JOIN leereenheden l ON clp.leereenheid_id = l.id
+        JOIN ka_weken sw ON clp.start_week_id = sw.id
+        JOIN ka_weken ew ON clp.eind_week_id = ew.id
+        WHERE clp.cohort_id = ?
+        ORDER BY sw.startdatum ASC
+    `;
+    db.all(sql, [req.params.cohort_id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+app.get('/api/cohort-weeks/:cohort_id', (req, res) => {
+    const sql = `
+        SELECT w.id, w.schooljaar_id, s.naam AS schooljaar_naam,
+               w.volgnummer_schooljaar, w.kalenderweek, w.startdatum, w.einddatum,
+               p.naam AS periode_naam, wt.is_lesweek, wt.omschrijving AS week_type
+        FROM cohort_schooljaren cs
+        JOIN ka_weken w ON w.schooljaar_id = cs.schooljaar_id
+        JOIN ka_schooljaren s ON s.id = w.schooljaar_id
+        LEFT JOIN ka_periodes p ON w.periode_id = p.id
+        JOIN ka_week_types wt ON w.type_id = wt.id
+        WHERE cs.cohort_id = ?
+        ORDER BY w.startdatum ASC
+    `;
+    db.all(sql, [req.params.cohort_id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: rows });
+    });
+});
+
+app.post('/api/cohort-planning', (req, res) => {
+    const { cohort_id, leereenheid_id, start_week_id, eind_week_id } = req.body;
+    const sql = `INSERT INTO cohort_leereenheid_planning (cohort_id, leereenheid_id, start_week_id, eind_week_id) VALUES (?, ?, ?, ?)`;
+    db.run(sql, [cohort_id, leereenheid_id, start_week_id, eind_week_id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ data: { id: this.lastID, cohort_id, leereenheid_id, start_week_id, eind_week_id } });
+    });
+});
+
+app.delete('/api/cohort-planning/:id', (req, res) => {
+    db.run(`DELETE FROM cohort_leereenheid_planning WHERE id = ?`, req.params.id, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ deleted: this.changes });
+    });
 });
 
 // Start Server

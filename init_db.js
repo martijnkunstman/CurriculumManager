@@ -50,12 +50,12 @@ CREATE TABLE ka_weken (
   type_id INTEGER NOT NULL
 );
 
-CREATE TABLE ka_cohorten (
+CREATE TABLE cohorten (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   naam TEXT NOT NULL UNIQUE
 );
 
-CREATE TABLE ka_leereenheden (
+CREATE TABLE leereenheden (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   naam TEXT NOT NULL UNIQUE
 );
@@ -66,6 +66,20 @@ CREATE TABLE cohort_leereenheden (
   leereenheid_id INTEGER NOT NULL,
   UNIQUE(cohort_id, leereenheid_id)
 );
+
+CREATE TABLE cohort_schooljaren (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cohort_id INTEGER NOT NULL,
+  schooljaar_id INTEGER NOT NULL
+);
+
+CREATE TABLE cohort_leereenheid_planning (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cohort_id INTEGER NOT NULL,
+  leereenheid_id INTEGER NOT NULL,
+  start_week_id INTEGER NOT NULL,
+  eind_week_id INTEGER NOT NULL
+);
 `;
 
 function initializeDatabase() {
@@ -73,7 +87,7 @@ function initializeDatabase() {
   const sqlContent = fs.readFileSync(SQL_FILE_PATH, 'utf8');
 
   // Extract INSERT statements for the ka_ tables
-  const tablesToExtract = ['ka_schooljaren', 'ka_periodes', 'ka_week_types', 'ka_weken', 'cohorten', 'ka_leereenheden', 'cohort_leereenheden'];
+  const tablesToExtract = ['ka_schooljaren', 'ka_periodes', 'ka_week_types', 'ka_weken', 'cohorten', 'leereenheden', 'cohort_leereenheden', 'cohort_schooljaren'];
   const inserts = [];
 
   tablesToExtract.forEach(table => {

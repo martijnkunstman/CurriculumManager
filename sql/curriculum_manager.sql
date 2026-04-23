@@ -20,6 +20,23 @@ SET time_zone = "+00:00";
 --
 -- Database: `curriculum_manager`
 --
+DROP TABLE IF EXISTS `cohort_leereenheid_planning`;
+DROP TABLE IF EXISTS `cohort_schooljaren`;
+DROP TABLE IF EXISTS `cohorten`;
+DROP TABLE IF EXISTS `leereenheden`;
+DROP TABLE IF EXISTS `leereenheid_types`;
+DROP TABLE IF EXISTS `ka_weken`;
+DROP TABLE IF EXISTS `ka_periodes`;
+DROP TABLE IF EXISTS `ka_schooljaren`;
+DROP TABLE IF EXISTS `ka_week_types`;
+DROP TABLE IF EXISTS `kd_werkproces_competenties`;
+DROP TABLE IF EXISTS `kd_competenties`;
+DROP TABLE IF EXISTS `kd_gedrag`;
+DROP TABLE IF EXISTS `kd_kerntaken`;
+DROP TABLE IF EXISTS `kd_werkprocessen`;
+DROP TABLE IF EXISTS `opleidingen`;
+DROP TABLE IF EXISTS `kds`;
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- --------------------------------------------------------
 
@@ -893,10 +910,7 @@ COMMIT;
 CREATE TABLE `cohorten` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `naam` varchar(100) NOT NULL,
-  `start_schooljaar_id` int(11) NOT NULL,
-  `aantal_jaren` int(11) DEFAULT 3,
-  PRIMARY KEY (`id`),
-  FOREIGN KEY (`start_schooljaar_id`) REFERENCES `ka_schooljaren` (`id`)
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- 2. Create the Leereenheid Types table (Same as before)
@@ -936,3 +950,12 @@ INSERT INTO `leereenheid_types` (`naam`)
 VALUES 
   ('module'),
   ('ontwikkelweek');
+
+CREATE TABLE `cohort_schooljaren` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `cohort_id` int(11) NOT NULL,
+  `schooljaar_id` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`cohort_id`) REFERENCES `cohorten` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`schooljaar_id`) REFERENCES `ka_schooljaren` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

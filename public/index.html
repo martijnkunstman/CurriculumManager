@@ -120,42 +120,18 @@
                     <div class="planning-toolbar">
                         <label style="font-weight:500;">Cohort:</label>
                         <select id="planning-cohort-select" class="form-control" style="width:220px;"></select>
-                        <button class="btn-primary" id="btn-add-planning" style="display:none;">
-                            <ion-icon name="add-outline"></ion-icon> Add Leereenheid
-                        </button>
                     </div>
-                    <div id="planning-calendar"></div>
+                    <div class="planning-workspace">
+                        <div id="planning-calendar" class="planning-calendar-area"></div>
+                        <aside class="planning-palette" id="planning-palette" style="display:none;">
+                            <h4 class="palette-title">Leereenheden</h4>
+                            <p class="palette-hint">Sleep naar de tijdlijn</p>
+                            <div id="palette-list"></div>
+                        </aside>
+                    </div>
                 </div>
             </section>
         </main>
-    </div>
-
-    <!-- Planning Modal -->
-    <div class="modal-overlay" id="planning-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Plan Leereenheid</h3>
-                <button class="btn-close" id="btn-close-planning-modal"><ion-icon name="close-outline"></ion-icon></button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Leereenheid</label>
-                    <select id="planning-leereenheid-select" class="form-control"></select>
-                </div>
-                <div class="form-group">
-                    <label>Start Week</label>
-                    <select id="planning-start-week" class="form-control"></select>
-                </div>
-                <div class="form-group">
-                    <label>Eind Week</label>
-                    <select id="planning-eind-week" class="form-control"></select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" id="btn-cancel-planning">Cancel</button>
-                <button class="btn-primary" id="btn-save-planning">Save</button>
-            </div>
-        </div>
     </div>
 
     <!-- Edit Modal / Add New Modal -->

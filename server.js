@@ -221,6 +221,18 @@ app.delete('/api/cohort-planning/:id', (req, res) => {
     });
 });
 
+app.put('/api/cohort-planning/:id', (req, res) => {
+    const { start_week_id, eind_week_id } = req.body;
+    db.run(
+        `UPDATE cohort_leereenheid_planning SET start_week_id = ?, eind_week_id = ? WHERE id = ?`,
+        [start_week_id, eind_week_id, req.params.id],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ updated: this.changes });
+        }
+    );
+});
+
 // Start Server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

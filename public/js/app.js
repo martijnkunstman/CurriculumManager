@@ -2,9 +2,7 @@ const state = {
     currentTable: 'ka_schooljaren',
     data: [],
     editingId: null,
-    schooljaren: [],
-    planningData: [],
-    cohortWeeks: []
+    schooljaren: []
 };
 
 const tableTitles = {
@@ -38,11 +36,8 @@ const dom = {
     planningContainer: document.getElementById('cohort-planning-container'),
     planningCohortSelect: document.getElementById('planning-cohort-select'),
     planningCalendar: document.getElementById('planning-calendar'),
-    btnAddPlanning: document.getElementById('btn-add-planning'),
-    planningModal: document.getElementById('planning-modal'),
-    planningLeereenheadSelect: document.getElementById('planning-leereenheid-select'),
-    planningStartWeek: document.getElementById('planning-start-week'),
-    planningEindWeek: document.getElementById('planning-eind-week'),
+    planningPalette: document.getElementById('planning-palette'),
+    paletteList: document.getElementById('palette-list'),
     yearSelect: document.getElementById('year-select'),
     btnAdd: document.getElementById('btn-add-new'),
     modal: document.getElementById('edit-modal'),
@@ -64,6 +59,16 @@ async function fetchData(table) {
     }
 }
 
+function populateSelect(el, items, placeholder = '', labelFn = item => item.naam) {
+    el.innerHTML = placeholder ? `<option value="">${placeholder}</option>` : '';
+    items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = labelFn(item);
+        el.appendChild(opt);
+    });
+}
+
 async function loadSchooljarenDropdown() {
     state.schooljaren = await fetchData('ka_schooljaren');
     dom.yearSelect.innerHTML = '';
@@ -75,65 +80,33 @@ async function loadSchooljarenDropdown() {
     });
 }
 
+const CONTENT_CONTAINERS = {
+    year_visualizer:    'visualizerContainer',
+    cohort_connections: 'connectionsContainer',
+    cohort_schooljaren: 'cohortYearsContainer',
+    cohort_planning:    'planningContainer',
+};
+const ALL_CONTAINERS = ['tableContainer','visualizerContainer','connectionsContainer','cohortYearsContainer','planningContainer'];
+
+function showView(tableName) {
+    ALL_CONTAINERS.forEach(k => { dom[k].style.display = 'none'; });
+    const target = CONTENT_CONTAINERS[tableName] || 'tableContainer';
+    dom[target].style.display = 'block';
+    dom.btnAdd.style.display = (target === 'tableContainer') ? 'inline-flex' : 'none';
+    dom.yearSelect.style.display = 'none';
+}
+
 async function loadTable(tableName) {
     state.currentTable = tableName;
     dom.pageTitle.textContent = tableTitles[tableName] || 'Management';
-    
-    // Update active nav
-    dom.navLinks.forEach(link => {
-        if (link.dataset.target === tableName) link.classList.add('active');
-        else link.classList.remove('active');
-    });
+    dom.navLinks.forEach(link => link.classList.toggle('active', link.dataset.target === tableName));
 
-    if (tableName === 'year_visualizer') {
-        dom.tableContainer.style.display = 'none';
-        dom.visualizerContainer.style.display = 'block';
-        dom.connectionsContainer.style.display = 'none';
-        dom.cohortYearsContainer.style.display = 'none';
-        dom.planningContainer.style.display = 'none';
-        dom.btnAdd.style.display = 'none';
-        dom.yearSelect.style.display = 'none';
-        await renderYearVisualizer();
-        return;
-    } else if (tableName === 'cohort_connections') {
-        dom.tableContainer.style.display = 'none';
-        dom.visualizerContainer.style.display = 'none';
-        dom.connectionsContainer.style.display = 'block';
-        dom.cohortYearsContainer.style.display = 'none';
-        dom.planningContainer.style.display = 'none';
-        dom.btnAdd.style.display = 'none';
-        dom.yearSelect.style.display = 'none';
-        await loadCohortConnectionsView();
-        return;
-    } else if (tableName === 'cohort_schooljaren') {
-        dom.tableContainer.style.display = 'none';
-        dom.visualizerContainer.style.display = 'none';
-        dom.connectionsContainer.style.display = 'none';
-        dom.cohortYearsContainer.style.display = 'block';
-        dom.planningContainer.style.display = 'none';
-        dom.btnAdd.style.display = 'none';
-        dom.yearSelect.style.display = 'none';
-        await loadCohortYearsView();
-        return;
-    } else if (tableName === 'cohort_planning') {
-        dom.tableContainer.style.display = 'none';
-        dom.visualizerContainer.style.display = 'none';
-        dom.connectionsContainer.style.display = 'none';
-        dom.cohortYearsContainer.style.display = 'none';
-        dom.planningContainer.style.display = 'block';
-        dom.btnAdd.style.display = 'none';
-        dom.yearSelect.style.display = 'none';
-        await loadCohortPlanningView();
-        return;
-    } else {
-        dom.tableContainer.style.display = 'block';
-        dom.visualizerContainer.style.display = 'none';
-        dom.connectionsContainer.style.display = 'none';
-        dom.cohortYearsContainer.style.display = 'none';
-        dom.planningContainer.style.display = 'none';
-        dom.btnAdd.style.display = 'inline-flex';
-        dom.yearSelect.style.display = 'none';
-    }
+    showView(tableName);
+
+    if (tableName === 'year_visualizer')    { await renderYearVisualizer();       return; }
+    if (tableName === 'cohort_connections') { await loadCohortConnectionsView();  return; }
+    if (tableName === 'cohort_schooljaren') { await loadCohortYearsView();        return; }
+    if (tableName === 'cohort_planning')    { await loadCohortPlanningView();     return; }
 
     state.data = await fetchData(tableName);
     renderTable();
@@ -191,14 +164,16 @@ async function renderYearVisualizer() {
         const sjJson = await sjRes.json();
         const schooljaren = sjJson.data || [];
 
+        const weekResults = await Promise.all(
+            schooljaren.map(sj => fetch(`/api/year-view/${sj.id}`).then(r => r.json()))
+        );
+
         dom.visualizerContainer.innerHTML = '<div class="all-years-container"></div>';
         const allYearsCont = dom.visualizerContainer.querySelector('.all-years-container');
 
-        for (const sj of schooljaren) {
-            const res = await fetch(`/api/year-view/${sj.id}`);
-            const json = await res.json();
-            let weeks = json.data || [];
-            if (weeks.length === 0) continue;
+        schooljaren.forEach((sj, sjIdx) => {
+            let weeks = weekResults[sjIdx].data || [];
+            if (weeks.length === 0) return;
 
             // Mathematical Shift: Shift any pre-period holiday weeks (like Zomervakantie) to the END of the school year timeline
             const firstPeriodIdx = weeks.findIndex(w => w.periode_naam);
@@ -318,7 +293,7 @@ async function renderYearVisualizer() {
             yearRow.appendChild(yearTitle);
             yearRow.appendChild(timeline);
             allYearsCont.appendChild(yearRow);
-        }
+        });
 
     } catch (err) {
         console.error('Error rendering visualizer', err);
@@ -327,15 +302,8 @@ async function renderYearVisualizer() {
 }
 
 async function loadCohortConnectionsView() {
-    // Load cohorts into select
     const cohorts = await fetchData('cohorten');
-    dom.cohortSelect.innerHTML = '<option value="">-- Select a Cohort --</option>';
-    cohorts.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.naam;
-        dom.cohortSelect.appendChild(opt);
-    });
+    populateSelect(dom.cohortSelect, cohorts, '-- Select a Cohort --');
     dom.leereenhedenList.innerHTML = '';
 }
 
@@ -403,26 +371,12 @@ async function renderCohortConnections() {
 }
 
 async function loadCohortYearsView() {
-    // Load cohorts
-    const cohorts = await fetchData('cohorten');
-    dom.cohortYearSelect.innerHTML = '<option value="">-- Select a Cohort --</option>';
-    cohorts.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.naam;
-        dom.cohortYearSelect.appendChild(opt);
-    });
-
-    // Load schooljaren
-    const schooljaren = await fetchData('ka_schooljaren');
-    dom.addSchooljaarSelect.innerHTML = '<option value="">-- Select School Year to Add --</option>';
-    schooljaren.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = s.naam;
-        dom.addSchooljaarSelect.appendChild(opt);
-    });
-
+    const [cohorts, schooljaren] = await Promise.all([
+        fetchData('cohorten'),
+        fetchData('ka_schooljaren')
+    ]);
+    populateSelect(dom.cohortYearSelect, cohorts, '-- Select a Cohort --');
+    populateSelect(dom.addSchooljaarSelect, schooljaren, '-- Select School Year to Add --');
     dom.cohortYearsList.innerHTML = '';
 }
 
@@ -553,246 +507,354 @@ const PLANNING_COLORS = [
     '#4f86f7','#f7734f','#4fc77a','#c74fbd','#f7c94f',
     '#4fc7c7','#f74f6e','#8b4ff7','#a3c74f','#f7a04f'
 ];
+const LANE_HEIGHT = 34;
+
+let weekOffsetsByYear = {};
+let resizeState = null;
+
+function getLeerColor(id) {
+    return PLANNING_COLORS[id % PLANNING_COLORS.length];
+}
 
 async function loadCohortPlanningView() {
     const cohorts = await fetchData('cohorten');
-    dom.planningCohortSelect.innerHTML = '<option value="">-- Selecteer een cohort --</option>';
-    cohorts.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.naam;
-        dom.planningCohortSelect.appendChild(opt);
-    });
+    populateSelect(dom.planningCohortSelect, cohorts, '-- Selecteer een cohort --');
     dom.planningCalendar.innerHTML = '';
-    dom.btnAddPlanning.style.display = 'none';
+    dom.planningPalette.style.display = 'none';
 }
 
 async function renderCohortPlanning() {
     const cohortId = dom.planningCohortSelect.value;
     if (!cohortId) {
         dom.planningCalendar.innerHTML = '';
-        dom.btnAddPlanning.style.display = 'none';
+        dom.planningPalette.style.display = 'none';
         return;
     }
 
     dom.planningCalendar.innerHTML = '<p style="color:var(--text-secondary)">Loading...</p>';
 
-    const [weeksRes, planRes] = await Promise.all([
+    const [weeksRes, planRes, leerRes] = await Promise.all([
         fetch(`/api/cohort-weeks/${cohortId}`).then(r => r.json()),
-        fetch(`/api/cohort-planning/${cohortId}`).then(r => r.json())
+        fetch(`/api/cohort-planning/${cohortId}`).then(r => r.json()),
+        fetch('/api/leereenheden').then(r => r.json())
     ]);
 
-    state.cohortWeeks = weeksRes.data || [];
-    state.planningData = planRes.data || [];
+    const weeks = weeksRes.data || [];
+    const planningData = planRes.data || [];
+    const leereenheden = leerRes.data || [];
 
-    dom.btnAddPlanning.style.display = state.cohortWeeks.length ? 'inline-flex' : 'none';
-    renderPlanningCalendar(state.cohortWeeks, state.planningData);
+    renderPalette(leereenheden);
+    dom.planningPalette.style.display = weeks.length ? 'flex' : 'none';
+    renderPlanningTimeline(weeks, planningData, cohortId);
 }
 
-function renderPlanningCalendar(weeks, planningData) {
+function renderPalette(leereenheden) {
+    dom.paletteList.innerHTML = '';
+    leereenheden.forEach(l => {
+        const chip = document.createElement('div');
+        chip.className = 'palette-chip';
+        chip.draggable = true;
+        chip.textContent = l.naam;
+        chip.style.borderLeftColor = getLeerColor(l.id);
+        chip.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('leereenheid_id', l.id);
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+        dom.paletteList.appendChild(chip);
+    });
+}
+
+function renderPlanningTimeline(weeks, planningData, cohortId) {
     dom.planningCalendar.innerHTML = '';
+    weekOffsetsByYear = {};
 
     if (!weeks.length) {
         dom.planningCalendar.innerHTML = '<p style="color:var(--text-secondary)">Geen schooljaren gekoppeld aan dit cohort.</p>';
         return;
     }
 
-    // Group weeks by school year
-    const byYear = {};
+    const yearMap = new Map();
     weeks.forEach(w => {
-        if (!byYear[w.schooljaar_id]) byYear[w.schooljaar_id] = { naam: w.schooljaar_naam, weeks: [] };
-        byYear[w.schooljaar_id].weeks.push(w);
+        if (!yearMap.has(w.schooljaar_id)) yearMap.set(w.schooljaar_id, { id: w.schooljaar_id, naam: w.schooljaar_naam, weeks: [] });
+        yearMap.get(w.schooljaar_id).weeks.push(w);
     });
 
-    // Assign stable colors to leereenheden
-    const leerIds = [...new Set(planningData.map(p => p.leereenheid_id))];
-    const colorMap = {};
-    leerIds.forEach((id, i) => colorMap[id] = PLANNING_COLORS[i % PLANNING_COLORS.length]);
+    yearMap.forEach(year => {
+        const firstPeriodIdx = year.weeks.findIndex(w => w.periode_naam);
+        const displayWeeks = firstPeriodIdx > 0
+            ? [...year.weeks.slice(firstPeriodIdx), ...year.weeks.slice(0, firstPeriodIdx)]
+            : year.weeks;
 
-    Object.values(byYear).forEach(year => {
-        const yearWeeks = year.weeks;
+        const yearPlan = planningData.filter(p => p.schooljaar_id === year.id);
 
-        // Planning entries that start in this school year
-        const yearPlanning = planningData.filter(p => p.schooljaar_id === yearWeeks[0].schooljaar_id);
-
-        const block = document.createElement('div');
-        block.className = 'planning-year-block';
+        const section = document.createElement('div');
+        section.className = 'planning-year-section';
 
         const title = document.createElement('h3');
-        title.className = 'planning-year-title';
+        title.className = 'year-row-title';
         title.textContent = year.naam;
-        block.appendChild(title);
+        section.appendChild(title);
 
-        const table = document.createElement('table');
-        table.className = 'planning-table';
+        const scrollArea = document.createElement('div');
+        scrollArea.className = 'planning-scroll-area';
 
-        // ── Header rows ──────────────────────────────────────────────────────
-        const thead = document.createElement('thead');
+        const inner = document.createElement('div');
+        inner.className = 'planning-inner';
 
-        // Period label row
-        const periodRow = document.createElement('tr');
-        const periodLabelTh = document.createElement('th');
-        periodLabelTh.className = 'label-cell';
-        periodLabelTh.textContent = '';
-        periodRow.appendChild(periodLabelTh);
+        // ── Week header row (reuses year visualizer logic) ──
+        const weeksRow = document.createElement('div');
+        weeksRow.className = 'planning-weeks-row';
 
-        // Track period spans for merging
-        let currentPeriod = null;
-        let currentTh = null;
-        let periodSpan = 0;
-        const periodHeaders = [];
+        const contexts = displayWeeks.map((w, index) => {
+            if (w.periode_naam) return w.periode_naam;
+            let leftCtx = null, rightCtx = null;
+            for (let i = index - 1; i >= 0; i--) { if (displayWeeks[i].periode_naam) { leftCtx = displayWeeks[i].periode_naam; break; } }
+            for (let i = index + 1; i < displayWeeks.length; i++) { if (displayWeeks[i].periode_naam) { rightCtx = displayWeeks[i].periode_naam; break; } }
+            if (leftCtx && leftCtx === rightCtx) return leftCtx;
+            return `between_${leftCtx}_${rightCtx}`;
+        });
 
-        yearWeeks.forEach((w, i) => {
-            const pName = w.periode_naam || '';
-            const isLast = i === yearWeeks.length - 1;
+        let seenPeriods = new Set();
+        let currentPeriodWeek = 1;
 
-            if (pName !== currentPeriod) {
-                if (currentTh) {
-                    currentTh.colSpan = periodSpan;
-                    periodHeaders.push(currentTh);
-                }
-                currentTh = document.createElement('th');
-                currentTh.textContent = pName || (w.is_lesweek ? '' : w.week_type);
-                currentTh.style.borderLeft = '2px solid var(--border-color)';
-                currentPeriod = pName;
-                periodSpan = 1;
+        displayWeeks.forEach((w, index) => {
+            const col = document.createElement('div');
+            col.className = 'timeline-col';
+
+            const currentCtx = contexts[index];
+            const prevCtx = index > 0 ? contexts[index - 1] : null;
+            const nextCtx = index < displayWeeks.length - 1 ? contexts[index + 1] : null;
+
+            if (currentCtx !== prevCtx) currentPeriodWeek = 1;
+
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'timeline-label';
+            if (w.periode_naam && !seenPeriods.has(w.periode_naam)) {
+                labelDiv.textContent = w.periode_naam;
+                seenPeriods.add(w.periode_naam);
             } else {
-                periodSpan++;
+                labelDiv.innerHTML = '&nbsp;';
             }
 
-            if (isLast && currentTh) {
-                currentTh.colSpan = periodSpan;
-                periodHeaders.push(currentTh);
-            }
-        });
-        periodHeaders.forEach(th => periodRow.appendChild(th));
+            const block = document.createElement('div');
+            block.className = 'week-block';
+            block.dataset.weekId = w.id;
+            block.style.flexDirection = 'column';
 
-        // Delete action header
-        const deleteTh = document.createElement('th');
-        deleteTh.textContent = '';
-        periodRow.appendChild(deleteTh);
-        thead.appendChild(periodRow);
-
-        // Week number row
-        const weekRow = document.createElement('tr');
-        const weekLabelTh = document.createElement('th');
-        weekLabelTh.className = 'label-cell';
-        weekLabelTh.textContent = 'Leereenheid';
-        weekRow.appendChild(weekLabelTh);
-
-        yearWeeks.forEach((w, i) => {
-            const th = document.createElement('th');
-            th.textContent = `w${w.kalenderweek}`;
-            th.title = `${w.startdatum} – ${w.einddatum}`;
             const isHoliday = w.week_type && w.week_type.toLowerCase().includes('vakantie');
-            if (isHoliday) th.classList.add('holiday-header');
-            const prevPeriod = i > 0 ? yearWeeks[i-1].periode_naam : null;
-            if (w.periode_naam !== prevPeriod) th.style.borderLeft = '2px solid var(--border-color)';
-            weekRow.appendChild(th);
+            let pText = '&nbsp;';
+            if (!isHoliday) { pText = currentPeriodWeek; currentPeriodWeek++; }
+
+            block.innerHTML = `
+                <div style="font-size: 0.85rem; font-weight: bold; line-height: 1;">${pText}</div>
+                <div style="font-size: 0.55rem; font-weight: 600; line-height: 1; margin-top: 2px; opacity: 0.85;">w${w.kalenderweek}</div>
+            `;
+
+            if (w.is_lesweek) block.classList.add('lesweek');
+            else if (isHoliday) block.classList.add('holiday');
+            else block.classList.add('special');
+
+            const isStart = index === 0 || prevCtx !== currentCtx;
+            const isEnd = index === displayWeeks.length - 1 || nextCtx !== currentCtx;
+            if (isStart) block.classList.add('start-block');
+            if (isEnd) { block.classList.add('end-block'); col.style.marginRight = '1.25rem'; }
+
+            block.setAttribute('data-tooltip', w.periode_naam
+                ? `W${w.kalenderweek}: ${w.startdatum} | ${w.periode_naam}`
+                : `W${w.kalenderweek}: ${w.startdatum} | ${w.week_type}`
+            );
+
+            block.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; block.classList.add('drop-highlight'); });
+            block.addEventListener('dragleave', () => block.classList.remove('drop-highlight'));
+            block.addEventListener('drop', e => {
+                e.preventDefault();
+                block.classList.remove('drop-highlight');
+                const leerId = e.dataTransfer.getData('leereenheid_id');
+                if (leerId) handlePaletteDrop(leerId, w.id, displayWeeks, cohortId);
+            });
+
+            col.appendChild(labelDiv);
+            col.appendChild(block);
+            weeksRow.appendChild(col);
         });
 
-        const actionTh = document.createElement('th');
-        weekRow.appendChild(actionTh);
-        thead.appendChild(weekRow);
-        table.appendChild(thead);
+        // ── Bars section ──
+        const barsSection = document.createElement('div');
+        barsSection.className = 'planning-bars-section';
+        const initialLanes = Math.max(1, computeLanes(yearPlan).length);
+        barsSection.style.height = `${initialLanes * LANE_HEIGHT + 8}px`;
 
-        // ── Body rows (one per planning entry) ───────────────────────────────
-        const tbody = document.createElement('tbody');
+        inner.appendChild(weeksRow);
+        inner.appendChild(barsSection);
+        scrollArea.appendChild(inner);
+        section.appendChild(scrollArea);
+        dom.planningCalendar.appendChild(section);
 
-        if (yearPlanning.length === 0) {
-            const tr = document.createElement('tr');
-            const td = document.createElement('td');
-            td.colSpan = yearWeeks.length + 2;
-            td.style.textAlign = 'center';
-            td.style.padding = '1rem';
-            td.style.color = 'var(--text-secondary)';
-            td.textContent = 'Geen leereenheden gepland. Klik "Add Leereenheid" om te starten.';
-            tr.appendChild(td);
-            tbody.appendChild(tr);
-        } else {
-            yearPlanning.forEach(entry => {
-                const tr = document.createElement('tr');
-
-                const labelTd = document.createElement('td');
-                labelTd.className = 'label-cell';
-                labelTd.textContent = entry.leereenheid_naam;
-                tr.appendChild(labelTd);
-
-                const color = colorMap[entry.leereenheid_id] || '#4f86f7';
-
-                yearWeeks.forEach((w, wi) => {
-                    const td = document.createElement('td');
-                    td.className = 'week-cell';
-                    const isHoliday = w.week_type && w.week_type.toLowerCase().includes('vakantie');
-                    if (isHoliday) {
-                        td.classList.add('holiday');
-                    } else if (w.volgnummer_schooljaar >= entry.start_volgnummer &&
-                               w.volgnummer_schooljaar <= entry.eind_volgnummer) {
-                        td.classList.add('active');
-                        td.style.backgroundColor = color;
-                    }
-                    const prevPeriod = wi > 0 ? yearWeeks[wi - 1].periode_naam : null;
-                    if (w.periode_naam !== prevPeriod) td.style.borderLeft = '2px solid var(--border-color)';
-                    tr.appendChild(td);
-                });
-
-                const deleteTd = document.createElement('td');
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'planning-row-delete';
-                deleteBtn.innerHTML = '<ion-icon name="trash-outline"></ion-icon>';
-                deleteBtn.title = 'Verwijder planning';
-                deleteBtn.onclick = () => deletePlanningEntry(entry.id);
-                deleteTd.appendChild(deleteBtn);
-                tr.appendChild(deleteTd);
-
-                tbody.appendChild(tr);
+        requestAnimationFrame(() => {
+            const blocks = weeksRow.querySelectorAll('.week-block');
+            const baseLeft = barsSection.getBoundingClientRect().left;
+            const offsets = displayWeeks.map((w, i) => {
+                const rect = blocks[i].getBoundingClientRect();
+                return { id: w.id, left: rect.left - baseLeft, right: rect.right - baseLeft };
             });
-        }
-
-        table.appendChild(tbody);
-        block.appendChild(table);
-        dom.planningCalendar.appendChild(block);
+            weekOffsetsByYear[year.id] = { offsets, barsSection };
+            placeBarsForYear(yearPlan, barsSection, offsets);
+        });
     });
 }
 
+function computeLanes(planEntries) {
+    const sorted = [...planEntries].sort((a, b) => a.start_volgnummer - b.start_volgnummer);
+    const lanes = [];
+    sorted.forEach(entry => {
+        let placed = false;
+        for (let i = 0; i < lanes.length; i++) {
+            if (lanes[i][lanes[i].length - 1].eind_volgnummer < entry.start_volgnummer) {
+                lanes[i].push(entry);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) lanes.push([entry]);
+    });
+    return lanes;
+}
+
+function placeBarsForYear(planEntries, barsSection, offsets) {
+    barsSection.innerHTML = '';
+    if (!planEntries.length) return;
+
+    const lanes = computeLanes(planEntries);
+    barsSection.style.height = `${lanes.length * LANE_HEIGHT + 8}px`;
+
+    const laneMap = new Map();
+    lanes.forEach((lane, laneIdx) => lane.forEach(entry => laneMap.set(entry.id, laneIdx)));
+
+    planEntries.forEach(entry => {
+        const startOff = offsets.find(o => o.id === entry.start_week_id);
+        const endOff = offsets.find(o => o.id === entry.eind_week_id);
+        if (!startOff || !endOff) return;
+
+        const laneIdx = laneMap.get(entry.id) || 0;
+        const top = laneIdx * LANE_HEIGHT + 4;
+        const left = startOff.left + 2;
+        const width = endOff.right - startOff.left - 4;
+        const color = getLeerColor(entry.leereenheid_id);
+
+        const bar = document.createElement('div');
+        bar.className = 'leereenheid-bar';
+        bar.dataset.entryId = entry.id;
+        bar.style.cssText = `top:${top}px; left:${left}px; width:${Math.max(width, 10)}px; background:${color};`;
+
+        const handleLeft = document.createElement('div');
+        handleLeft.className = 'bar-handle left';
+        handleLeft.addEventListener('mousedown', e => startResize(e, entry, 'left'));
+
+        const label = document.createElement('span');
+        label.className = 'bar-label';
+        label.textContent = entry.leereenheid_naam;
+
+        const handleRight = document.createElement('div');
+        handleRight.className = 'bar-handle right';
+        handleRight.addEventListener('mousedown', e => startResize(e, entry, 'right'));
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'bar-delete-btn';
+        delBtn.innerHTML = '<ion-icon name="close-circle-outline"></ion-icon>';
+        delBtn.title = 'Verwijder planning';
+        delBtn.addEventListener('click', () => deletePlanningEntry(entry.id));
+
+        bar.appendChild(handleLeft);
+        bar.appendChild(label);
+        bar.appendChild(handleRight);
+        bar.appendChild(delBtn);
+        barsSection.appendChild(bar);
+    });
+}
+
+async function handlePaletteDrop(leereenheid_id, drop_week_id, displayWeeks, cohortId) {
+    const dropIdx = displayWeeks.findIndex(w => w.id === parseInt(drop_week_id));
+    if (dropIdx === -1) return;
+
+    let endId = displayWeeks[dropIdx].id;
+    let count = 0;
+    for (let i = dropIdx; i < displayWeeks.length && count < 4; i++) {
+        if (displayWeeks[i].is_lesweek) { endId = displayWeeks[i].id; count++; }
+    }
+
+    await fetch('/api/cohort-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cohort_id: cohortId, leereenheid_id, start_week_id: drop_week_id, eind_week_id: endId })
+    });
+    renderCohortPlanning();
+}
+
 async function deletePlanningEntry(id) {
-    if (!confirm('Planning verwijderen?')) return;
     await fetch(`/api/cohort-planning/${id}`, { method: 'DELETE' });
     renderCohortPlanning();
 }
 
-function openPlanningModal() {
-    const weeks = state.cohortWeeks;
-
-    // Populate leereenheden
-    fetchData('leereenheden').then(leers => {
-        dom.planningLeereenheadSelect.innerHTML = '';
-        leers.forEach(l => {
-            const opt = document.createElement('option');
-            opt.value = l.id;
-            opt.textContent = l.naam;
-            dom.planningLeereenheadSelect.appendChild(opt);
-        });
-    });
-
-    // Populate week dropdowns (only lesson weeks make sense as start/end)
-    const lesWeeks = weeks.filter(w => w.is_lesweek);
-    [dom.planningStartWeek, dom.planningEindWeek].forEach(sel => {
-        sel.innerHTML = '';
-        lesWeeks.forEach(w => {
-            const opt = document.createElement('option');
-            opt.value = w.id;
-            opt.textContent = `${w.schooljaar_naam} – w${w.kalenderweek} (${w.startdatum})`;
-            sel.appendChild(opt);
-        });
-    });
-
-    dom.planningModal.classList.add('active');
+function startResize(e, entry, side) {
+    e.preventDefault();
+    e.stopPropagation();
+    const yearData = Object.values(weekOffsetsByYear).find(d =>
+        d.barsSection.querySelector(`[data-entry-id="${entry.id}"]`)
+    );
+    if (!yearData) return;
+    resizeState = {
+        entry, side,
+        offsets: yearData.offsets,
+        barsSection: yearData.barsSection,
+        startWeekId: entry.start_week_id,
+        endWeekId: entry.eind_week_id
+    };
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
 }
 
-function closePlanningModal() {
-    dom.planningModal.classList.remove('active');
-}
+document.addEventListener('mousemove', e => {
+    if (!resizeState) return;
+    const { barsSection, offsets } = resizeState;
+    const relX = e.clientX - barsSection.getBoundingClientRect().left;
+
+    let best = null, bestDist = Infinity;
+    offsets.forEach(o => {
+        const dist = Math.abs(relX - (o.left + o.right) / 2);
+        if (dist < bestDist) { bestDist = dist; best = o; }
+    });
+    if (!best) return;
+
+    if (resizeState.side === 'left') resizeState.startWeekId = best.id;
+    else resizeState.endWeekId = best.id;
+
+    const startOff = offsets.find(o => o.id === resizeState.startWeekId);
+    const endOff = offsets.find(o => o.id === resizeState.endWeekId);
+    if (!startOff || !endOff) return;
+
+    const width = endOff.right - startOff.left - 4;
+    if (width < 10) return;
+
+    const bar = barsSection.querySelector(`[data-entry-id="${resizeState.entry.id}"]`);
+    if (bar) { bar.style.left = `${startOff.left + 2}px`; bar.style.width = `${width}px`; }
+});
+
+document.addEventListener('mouseup', async () => {
+    if (!resizeState) return;
+    const { entry, startWeekId, endWeekId } = resizeState;
+    resizeState = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+
+    if (startWeekId !== entry.start_week_id || endWeekId !== entry.eind_week_id) {
+        await fetch(`/api/cohort-planning/${entry.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start_week_id: startWeekId, eind_week_id: endWeekId })
+        });
+        renderCohortPlanning();
+    }
+});
 
 // Event Listeners
 dom.navLinks.forEach(link => {
@@ -840,28 +902,6 @@ dom.btnAddCohortYear.addEventListener('click', async () => {
 
 dom.planningCohortSelect.addEventListener('change', () => {
     if (state.currentTable === 'cohort_planning') renderCohortPlanning();
-});
-
-dom.btnAddPlanning.addEventListener('click', openPlanningModal);
-document.getElementById('btn-close-planning-modal').addEventListener('click', closePlanningModal);
-document.getElementById('btn-cancel-planning').addEventListener('click', closePlanningModal);
-
-document.getElementById('btn-save-planning').addEventListener('click', async () => {
-    const cohortId = dom.planningCohortSelect.value;
-    const leereenheid_id = dom.planningLeereenheadSelect.value;
-    const start_week_id = dom.planningStartWeek.value;
-    const eind_week_id = dom.planningEindWeek.value;
-
-    if (!cohortId || !leereenheid_id || !start_week_id || !eind_week_id) return;
-
-    await fetch('/api/cohort-planning', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cohort_id: cohortId, leereenheid_id, start_week_id, eind_week_id })
-    });
-
-    closePlanningModal();
-    renderCohortPlanning();
 });
 
 dom.btnAdd.addEventListener('click', () => {
